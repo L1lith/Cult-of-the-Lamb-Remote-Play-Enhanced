@@ -22,13 +22,13 @@ struct DesktopState {
     demo: bool,
     game_dir: Option<String>,
     exe_path: Option<String>,
-    bepinex_installed: bool,
+    loader_installed: bool,
     mod_installed: bool,
     mod_version: Option<String>,
     config_text: String,
     capabilities_text: Option<String>,
     config_path: Option<String>,
-    plugins_dir: Option<String>,
+    mod_dir: Option<String>,
     notice: Option<String>,
 }
 
@@ -53,13 +53,13 @@ fn get_app_state(override_dir: Option<String>) -> DesktopState {
         demo: false,
         game_dir: None,
         exe_path: None,
-        bepinex_installed: false,
+        loader_installed: false,
         mod_installed: false,
         mod_version: None,
         config_text: String::new(),
         capabilities_text: None,
         config_path: None,
-        plugins_dir: None,
+        mod_dir: None,
         notice,
     };
 
@@ -69,15 +69,15 @@ fn get_app_state(override_dir: Option<String>) -> DesktopState {
 
     state.game_dir = Some(game_dir.display().to_string());
     state.exe_path = find_executable(&game_dir).map(|path| path.display().to_string());
-    state.bepinex_installed = rpe_core::bepinex_installed(&game_dir);
+    state.loader_installed = rpe_core::loader_installed(&game_dir);
     state.mod_installed = rpe_core::mod_installed(&game_dir);
 
     let config_path = rpe_core::config_path(&game_dir);
     state.config_text = fs::read_to_string(&config_path).unwrap_or_default();
     state.config_path = Some(config_path.display().to_string());
 
-    let plugins_dir = rpe_core::plugin_dir(&game_dir);
-    state.plugins_dir = Some(plugins_dir.display().to_string());
+    let mod_dir = rpe_core::mod_dir(&game_dir);
+    state.mod_dir = Some(mod_dir.display().to_string());
 
     state.capabilities_text = rpe_core::read_capabilities(&game_dir);
     state.mod_version = mod_version(state.capabilities_text.as_deref());
@@ -107,26 +107,21 @@ fn save_config(game_dir: Option<String>, config_text: String) -> Result<SaveResu
 
 #[tauri::command(rename_all = "camelCase")]
 fn deploy_mod(app: tauri::AppHandle, game_dir: String) -> Result<DeployResult, String> {
-    let source = bundled_mod(&app)?;
+    let bundle = bundled_bundle(&app)?;
     let game_dir = PathBuf::from(game_dir);
     if !game_dir.is_dir() {
         return Err(format!("Game folder does not exist: {}", game_dir.display()));
     }
-    if !rpe_core::bepinex_installed(&game_dir) {
-        return Err(format!(
-            "BepInEx 5 is not installed in {}. Install it, launch the game once, then deploy.",
-            game_dir.display()
-        ));
-    }
 
-    let deployed = rpe_core::deploy_mod(&game_dir, &source).map_err(|error| error.to_string())?;
+    let deployed = rpe_core::deploy_bundle(&game_dir, &bundle).map_err(|error| {
+        format!("Could not install the standalone loader: {error}")
+    })?;
 
     Ok(DeployResult {
         path: deployed.display().to_string(),
         message: format!(
-            "Installed {} into {}",
-            rpe_core::MOD_DLL,
-            deployed.parent().unwrap_or(game_dir.as_path()).display()
+            "Installed the standalone loader and mod into {}",
+            game_dir.display()
         ),
     })
 }
@@ -199,28 +194,27 @@ fn mod_version(capabilities_text: Option<&str>) -> Option<String> {
         .map(ToOwned::to_owned)
 }
 
-fn bundled_mod(app: &tauri::AppHandle) -> Result<PathBuf, String> {
+fn bundled_bundle(app: &tauri::AppHandle) -> Result<PathBuf, String> {
     let mut candidates = Vec::new();
 
     if let Ok(resource_dir) = app.path().resource_dir() {
-        candidates.push(resource_dir.join(rpe_core::MOD_DLL));
-        candidates.push(resource_dir.join("resources").join(rpe_core::MOD_DLL));
+        candidates.push(resource_dir.join("bundle"));
+        candidates.push(resource_dir.join("resources").join("bundle"));
+        candidates.push(resource_dir);
     }
 
-    candidates.push(
-        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .join("resources")
-            .join(rpe_core::MOD_DLL),
-    );
+    let manifest_resources = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("resources");
+    candidates.push(manifest_resources.join("bundle"));
+    candidates.push(manifest_resources);
 
     candidates
         .into_iter()
-        .find(|path| path.is_file())
+        .find(|path| {
+            path.join("winhttp.dll").is_file()
+                && path.join("RemotePlayEnhanced").join("Bootstrap.dll").is_file()
+        })
         .ok_or_else(|| {
-            format!(
-                "Bundled {} is missing. Build the mod and copy it into app/src-tauri/resources/ before packaging.",
-                rpe_core::MOD_DLL
-            )
+            "Standalone loader bundle is missing. Build the mod and bootstrap, then copy them into app/src-tauri/resources/bundle/.".to_string()
         })
 }
 

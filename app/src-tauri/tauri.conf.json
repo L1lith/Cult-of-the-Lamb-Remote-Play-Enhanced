@@ -37,7 +37,7 @@
       "icons/icon.icns"
     ],
     "resources": [
-      "resources/*"
+      "resources/**/*"
     ],
     "createUpdaterArtifacts": true
   },

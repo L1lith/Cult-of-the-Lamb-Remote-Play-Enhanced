@@ -6,7 +6,7 @@ import {
   capabilityCounts,
   configFromText,
   featureLabel,
-  formatBepInExConfig,
+  formatModConfig,
   getPath,
   parseCapabilities,
   setPath,
@@ -82,7 +82,7 @@ function StatusBadge(props) {
 export default function App() {
   const [appState, setAppState] = createSignal(null);
   const [config, setConfig] = createSignal(DEFAULT_CONFIG);
-  const [savedText, setSavedText] = createSignal(formatBepInExConfig(DEFAULT_CONFIG));
+  const [savedText, setSavedText] = createSignal(formatModConfig(DEFAULT_CONFIG));
   const [capabilities, setCapabilities] = createSignal(null);
   const [status, setStatus] = createSignal({ kind: 'idle', message: '' });
   const [busy, setBusy] = createSignal(false);
@@ -90,7 +90,7 @@ export default function App() {
   const [overrideDir, setOverrideDir] = createSignal('');
   const [updateInfo, setUpdateInfo] = createSignal(null);
 
-  const dirty = createMemo(() => formatBepInExConfig(config()) !== savedText());
+  const dirty = createMemo(() => formatModConfig(config()) !== savedText());
   const validation = createMemo(() => validateConfig(config()));
   const counts = createMemo(() => capabilityCounts(capabilities()));
 
@@ -103,7 +103,7 @@ export default function App() {
     setAppState(state);
     const parsed = configFromText(state.configText ?? '');
     setConfig(parsed.config);
-    setSavedText(formatBepInExConfig(parsed.config));
+    setSavedText(formatModConfig(parsed.config));
     setUnknownKeys(parsed.unknown);
     setCapabilities(parseCapabilities(state.capabilitiesText));
     if (state.notice) setStatus({ kind: 'error', message: state.notice });
@@ -147,7 +147,7 @@ export default function App() {
 
     setBusy(true);
     try {
-      const text = formatBepInExConfig(config());
+      const text = formatModConfig(config());
       const result = await saveConfig(text, appState()?.gameDir ?? null);
       setSavedText(text);
       setUnknownKeys([]);
@@ -296,30 +296,23 @@ export default function App() {
                 <button class="link" onClick={() => reveal(appState().gameDir)}>open</button>
               </div>
               <div class="fact">
-                <span class="fact-label">BepInEx</span>
-                <StatusBadge state={appState().bepinexInstalled ? 'active' : 'unavailable'} />
+                <span class="fact-label">Loader</span>
+                <StatusBadge state={appState().loaderInstalled ? 'active' : 'unavailable'} />
               </div>
               <div class="fact">
-                <span class="fact-label">Mod DLL</span>
+                <span class="fact-label">Mod</span>
                 <StatusBadge state={appState().modInstalled ? 'active' : 'unavailable'} />
-                <code>{appState().modVersion ?? 'not installed'}</code>
+                <code>{appState().modVersion ?? (appState().modInstalled ? 'not run yet' : 'not installed')}</code>
               </div>
             </div>
-
-            <Show when={!appState().bepinexInstalled}>
-              <p class="warning">
-                BepInEx 5 is required. Install it into the game folder before deploying
-                the mod.
-              </p>
-            </Show>
 
             <div class="actions">
               <button
                 class="button primary"
                 onClick={deploy}
-                disabled={busy() || !appState().bepinexInstalled}
+                disabled={busy()}
               >
-                Reinstall / repair mod
+                Install / repair standalone mod
               </button>
               <button class="button" onClick={launch} disabled={busy()}>
                 Launch through Steam

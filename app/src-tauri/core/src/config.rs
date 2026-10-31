@@ -1,4 +1,4 @@
-//! BepInEx config model shared by the desktop app.
+//! Mod config model shared by the desktop app.
 //!
 //! Kept dependency-free so it can be tested without the Tauri toolchain.
 
@@ -48,7 +48,7 @@ impl Default for ModConfig {
 }
 
 impl ModConfig {
-    /// Parses the subset of a BepInEx config this app owns. Unknown sections and
+    /// Parses the subset of the mod config this app owns. Unknown sections and
     /// keys are ignored; missing values keep their defaults.
     pub fn parse(text: &str) -> Self {
         let mut config = Self::default();

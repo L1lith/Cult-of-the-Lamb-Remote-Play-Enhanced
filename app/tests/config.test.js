@@ -7,12 +7,12 @@ import {
   SCHEMA,
   capabilityCounts,
   configFromText,
-  formatBepInExConfig,
+  formatModConfig,
   getPath,
   isValidShortcut,
   normalizeShortcut,
   parseCapabilities,
-  parseBepInExConfig,
+  parseModConfig,
   setPath,
   validateConfig,
 } from '../src/lib/config.js';
@@ -56,8 +56,8 @@ test('schema paths are unique and defaults populate every path', () => {
   }
 });
 
-test('parses a BepInEx config with comments and unknown keys', () => {
-  const parsed = parseBepInExConfig(SAMPLE);
+test('parses a mod config with comments and unknown keys', () => {
+  const parsed = parseModConfig(SAMPLE);
 
   assert.equal(parsed.values['General.PlayerCount'], 3);
   assert.equal(parsed.values['Features.AutoHotJoin'], false);
@@ -80,7 +80,7 @@ test('configFromText merges parsed values over defaults', () => {
 });
 
 test('formatting and parsing round-trips the whole model', () => {
-  const text = formatBepInExConfig({
+  const text = formatModConfig({
     ...DEFAULT_CONFIG,
     general: { playerCount: 2 },
     camera: { ...DEFAULT_CONFIG.camera, splitDistance: 25 },
@@ -103,12 +103,12 @@ test('default config matches the shared JS/Rust fixture', () => {
     new URL('./fixtures/default.cfg', import.meta.url),
     'utf8',
   );
-  assert.equal(formatBepInExConfig(DEFAULT_CONFIG), fixture);
+  assert.equal(formatModConfig(DEFAULT_CONFIG), fixture);
   assert.deepEqual(configFromText(fixture).config, DEFAULT_CONFIG);
 });
 
-test('booleans format as BepInEx expects', () => {
-  const text = formatBepInExConfig({
+test('booleans use the expected lowercase form', () => {
+  const text = formatModConfig({
     ...DEFAULT_CONFIG,
     features: {
       ...DEFAULT_CONFIG.features,
@@ -138,7 +138,7 @@ test('validation catches range, cross-field and shortcut errors', () => {
   assert.equal(validateConfig(DEFAULT_CONFIG).ok, true);
 });
 
-test('shortcut normalization accepts BepInEx syntax', () => {
+test('shortcut normalization accepts cfg syntax', () => {
   assert.equal(normalizeShortcut('  T  '), 'T');
   assert.equal(normalizeShortcut('LeftControl+ T'), 'LeftControl + T');
   assert.equal(normalizeShortcut('KeyboardShortcut(F1)'), 'F1');
@@ -162,7 +162,7 @@ test('setPath is immutable', () => {
 
 test('capability reports are validated and normalized', () => {
   const report = parseCapabilities(JSON.stringify({
-    modVersion: '0.3.0',
+    modVersion: '0.4.0',
     playerCount: 4,
     cotlmpPresent: false,
     unityVersion: '2022.3.62f2',
@@ -176,7 +176,7 @@ test('capability reports are validated and normalized', () => {
   }));
 
   assert.equal(report.ok, true);
-  assert.equal(report.modVersion, '0.3.0');
+  assert.equal(report.modVersion, '0.4.0');
   assert.equal(report.cotlmpPresent, false);
   assert.equal(report.unityVersion, '2022.3.62f2');
   assert.equal(report.knownBuild, false);

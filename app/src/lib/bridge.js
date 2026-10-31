@@ -21,13 +21,13 @@ export async function getAppState() {
       demo: true,
       gameDir: null,
       exePath: null,
-      bepinexInstalled: false,
+      loaderInstalled: false,
       modInstalled: false,
       modVersion: null,
       configText: localStorage.getItem(DEMO_CONFIG_KEY) ?? '',
       capabilitiesText: null,
       configPath: null,
-      pluginsDir: null,
+      modDir: null,
     };
   }
 
