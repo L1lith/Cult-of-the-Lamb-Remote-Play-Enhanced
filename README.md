@@ -5,9 +5,9 @@ dynamic split-screen** experience for **Steam Remote Play Together**, with a
 Tauri desktop app for installing, configuring and updating it.
 
 > **Status:** design agreed; game internals verified against the installed build;
-> milestones 3–7 (4-player expansion, dynamic split screen, conversation/menu
-> merge, dialogue no-freeze, bulk tithes) implemented in `mod/`. The Tauri app
-> and release CI are not implemented yet.
+> milestones 3–8 (4-player expansion, dynamic split screen, conversation/menu
+> merge, dialogue no-freeze, bulk tithes, desktop app) implemented. Release CI
+> is in place; version-tolerance hardening against a future game update remains.
 > Read [`docs/DESIGN.md`](docs/DESIGN.md) first — it is the source of truth for
 > architecture, verified findings, the split-screen algorithm, and
 > version-tolerance strategy.
@@ -38,7 +38,7 @@ freezing everyone else.
 Architecture detail, asset locations and the atlas vocabulary are in
 [`docs/DESIGN.md`](docs/DESIGN.md) §3–§5 and §13.
 
-## Planned layout
+## Layout
 
 ```
 docs/DESIGN.md        architecture and decisions (source of truth)
@@ -64,5 +64,30 @@ design document for why.
 
 ## Building
 
-Releases are built by GitHub Actions. Local building requires the .NET SDK for
-the mod and the Rust toolchain plus webkit2gtk for the app.
+```bash
+# Mod (needs the .NET SDK; BepInEx and Unity stubs come from NuGet)
+dotnet build mod/RemotePlayEnhanced.csproj -c Release
+
+# App frontend (works in a browser without Rust)
+cd app
+npm install
+npm run dev
+
+# App shell (needs Rust and the Tauri system dependencies)
+npm run tauri dev
+```
+
+For a packaged app, build the mod and copy `RemotePlayEnhanced.dll` into
+`app/src-tauri/resources/` first. See [`app/README.md`](app/README.md).
+
+Tests:
+
+```bash
+cd app && npm test
+cargo test --manifest-path app/src-tauri/core/Cargo.toml
+```
+
+Releases are built by `.github/workflows/mod.yml` and
+`.github/workflows/app.yml`. The app workflow builds the mod, tests both the
+JavaScript config model and the dependency-free Rust core, then packages the
+matrix with `tauri-action`. Updater signing keys are repo secrets.

@@ -1,0 +1,10 @@
+[package]
+name = "rpe-core"
+version = "0.1.0"
+edition = "2021"
+description = "Filesystem and Steam-library logic for the Remote Play Enhanced app"
+license = "MIT"
+
+[lib]
+name = "rpe_core"
+path = "src/lib.rs"

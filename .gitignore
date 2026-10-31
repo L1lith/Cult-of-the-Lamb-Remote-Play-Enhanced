@@ -3,7 +3,14 @@ mod/bin/
 mod/obj/
 app/target/
 app/dist/
+app/.astro/
+app/src-tauri/target/
+app/src-tauri/gen/
 node_modules/
+
+# Bundled mod DLL (CI copies the built artifact in)
+app/src-tauri/resources/*.dll
+app/src-tauri/resources/*.pdb
 
 # Local tooling
 .vs/

@@ -1,7 +1,7 @@
 # Cult of the Lamb — Remote Play Enhanced
 
 Design decisions and technical plan.
-Status: **agreed; game internals verified against the installed build; milestones 3–7 implemented.**
+Status: **agreed; game internals verified against the installed build; milestones 3–8 implemented; release CI in place.**
 
 ## 1. What this is
 
@@ -298,28 +298,46 @@ and it reinstalls.
 
 ## 10. Tauri app
 
-- Detects the game install (Steam library folders → `Cult Of The Lamb.exe`).
-- Deploys / updates the mod DLL under `BepInEx/plugins/RemotePlayEnhanced/`.
-- Feature toggles map 1:1 to mod patch groups; disabled features are never
-  applied, not merely inert.
-- Writes the mod config JSON; shows the capability report.
-- Launches the game through Steam.
-- Self-updates via the Tauri updater against GitHub Releases.
+Implemented in `app/` as a Tauri 2 shell with an Astro 5 + SolidJS frontend
+(plain JS, JSX, functional style).
 
-Stack: Tauri (Rust shell) + SolidJS (plain JS, JSX `.jsx`, no TypeScript),
-functional style, per project preferences.
+- **Game detection:** parses `steamapps/libraryfolders.vdf` from the usual
+  Steam roots and Windows registry, checks both `steamapps` and `SteamApps`,
+  and accepts a manual folder override.
+- **Config:** the app parses and rewrites the mod's BepInEx config
+  (`BepInEx/config/com.l1lith.cotl.remoteplayenhanced.cfg`) rather than adding a
+  second JSON source of truth. The UI model mirrors the same keys; unknown keys
+  are reported before saving.
+- **Deploy:** copies the bundled `RemotePlayEnhanced.dll` into
+  `BepInEx/plugins/RemotePlayEnhanced/`; refuses if BepInEx 5 is missing.
+- **Feature toggles:** map 1:1 to config keys. The plugin now refuses to install
+  split screen, dialogue patches or tithe resolution when the feature is off at
+  startup, so disabled means not applied rather than inert.
+- **Capabilities:** reads `capabilities.json` and shows active/degraded/
+  unavailable plus the plugin's reason.
+- **Launch:** opens `steam://rungameid/1313140`.
+- **Updates:** Tauri updater against the repository's `latest.json`.
+- **Browser demo:** `npm run dev` works without Rust, using localStorage for the
+  config; Tauri-only actions explain why they are unavailable.
 
 ## 11. CI
 
-- `mod.yml` — compiles the C# plugin, packages it with BepInEx metadata.
-- `app.yml` — matrix build (Windows/macOS/Linux) with `tauri-action`, publishes
-  releases, generates the updater manifest.
-- Signing: Tauri updater keypair as repo secrets.
+- `mod.yml` — compiles the C# plugin against the public Unity reference
+  assemblies and the BepInEx NuGet feed; uploads `RemotePlayEnhanced.dll`.
+- `app.yml` — builds the mod artifact first, then a Windows/macOS/Linux matrix:
+  `npm ci`, frontend tests, `cargo test` for the dependency-free core, Astro
+  build, and `tauri-action`. Pull requests compile without bundling; pushes
+  create a draft release with updater artifacts.
+- The app bundles the mod DLL as a Tauri resource, so the installer and the mod
+  version stay together.
+- Signing: `TAURI_SIGNING_PRIVATE_KEY` and
+  `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` repo secrets. The updater public key in
+  `tauri.conf.json` must be replaced with the matching public key before a real
+  release.
 
-**Blocker to resolve:** CI needs the game's managed assemblies
-(`Assembly-CSharp.dll`, `UnityEngine.*`) to compile against. These are
-copyrighted and cannot be committed. Options: a private `libs` release the
-workflow downloads, or a `COTL_MANAGED_ZIP` secret. To be decided.
+**Remaining release blocker:** the updater keypair is operator-supplied and is
+not in the repository. Until the public key is replaced, updater checks fail
+cleanly at runtime instead of installing anything.
 
 ## 12. Testing limits
 
@@ -369,6 +387,6 @@ re-derive it.
 5. ✅ `SPLIT_4` / 3-pane layout, conversation and menu merge, pause-safe transitions.
 6. ✅ Dialogue no-freeze + auto-exit.
 7. ✅ Bulk tithes: key-activated, radius-based, doctrine-free.
-8. Tauri app: install, toggles, capability display, launch.
-9. CI releases + updater.
+8. ✅ Tauri app: install, toggles, capability display, launch, updater.
+9. ✅ CI workflows for the mod and the app matrix; release signing keys remain operator-supplied.
 10. Version-tolerance hardening against an actual game update.

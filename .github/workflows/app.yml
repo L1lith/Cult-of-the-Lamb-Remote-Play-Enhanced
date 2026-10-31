@@ -1,0 +1,119 @@
+name: build-app
+
+on:
+  push:
+    paths:
+      - "app/**"
+      - "mod/**"
+      - "NuGet.config"
+      - ".github/workflows/app.yml"
+  pull_request:
+    paths:
+      - "app/**"
+      - "mod/**"
+      - "NuGet.config"
+      - ".github/workflows/app.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  mod:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Restore
+        run: dotnet restore mod/RemotePlayEnhanced.csproj
+
+      - name: Build
+        run: dotnet build mod/RemotePlayEnhanced.csproj -c Release --no-restore
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: RemotePlayEnhanced
+          path: mod/bin/Release/RemotePlayEnhanced.dll
+          if-no-files-found: error
+
+  app:
+    needs: mod
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: windows-latest
+          - platform: macos-latest
+          - platform: ubuntu-22.04
+    runs-on: ${{ matrix.platform }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+
+      - name: Install Linux dependencies
+        if: matrix.platform == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libgtk-3-dev \
+            libappindicator3-dev \
+            librsvg2-dev \
+            patchelf
+
+      - name: Install frontend dependencies
+        working-directory: app
+        run: npm ci
+
+      - name: Download mod DLL
+        uses: actions/download-artifact@v4
+        with:
+          name: RemotePlayEnhanced
+          path: app/src-tauri/resources
+
+      - name: Test frontend logic
+        working-directory: app
+        run: npm test
+
+      - name: Test Rust core
+        run: cargo test --manifest-path app/src-tauri/core/Cargo.toml
+
+      - name: Build frontend
+        working-directory: app
+        run: npm run build
+        env:
+          ASTRO_TELEMETRY_DISABLED: "1"
+
+      - name: Build app (pull request)
+        if: github.event_name == 'pull_request'
+        uses: tauri-apps/tauri-action@v0
+        with:
+          projectPath: app
+          args: --no-bundle
+
+      - name: Build and draft release
+        if: github.event_name != 'pull_request'
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          projectPath: app
+          tagName: app-v__VERSION__
+          releaseName: "Remote Play Enhanced v__VERSION__"
+          releaseBody: |
+            Desktop companion for the Remote Play Enhanced mod.
+            See the assets below for installers and updater signatures.
+          releaseDraft: true
+          prerelease: false

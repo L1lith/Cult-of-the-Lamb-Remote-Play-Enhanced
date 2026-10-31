@@ -58,6 +58,12 @@ namespace RemotePlayEnhanced
                 return;
             }
 
+            if (Plugin.Settings != null && !Plugin.Settings.EnableBulkTithes.Value)
+            {
+                Reason = "disabled in config";
+                return;
+            }
+
             try
             {
                 Type followerManager = AccessTools.TypeByName("FollowerManager");

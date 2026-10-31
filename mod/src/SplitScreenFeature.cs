@@ -64,6 +64,12 @@ namespace RemotePlayEnhanced
                 return;
             }
 
+            if (Plugin.Settings != null && !Plugin.Settings.EnableSplitScreen.Value)
+            {
+                Reason = "disabled in config";
+                return;
+            }
+
             try
             {
                 Type playerFarming = AccessTools.TypeByName("PlayerFarming");

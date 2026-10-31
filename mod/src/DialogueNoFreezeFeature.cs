@@ -68,6 +68,12 @@ namespace RemotePlayEnhanced
                 return;
             }
 
+            if (Plugin.Settings != null && !Plugin.Settings.EnableDialogueFree.Value)
+            {
+                Reason = "disabled in config";
+                return;
+            }
+
             try
             {
                 _playerFarmingType = AccessTools.TypeByName("PlayerFarming");
