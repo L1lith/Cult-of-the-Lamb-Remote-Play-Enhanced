@@ -2,7 +2,7 @@
 
 BepInEx 5 plugin for *Cult of the Lamb*.
 
-## Milestone 4 (current)
+## Milestones 4–6 (current)
 
 ### Four players
 
@@ -51,15 +51,39 @@ having fewer than two active players all force the merged view.
 The split-screen decision logic (`SplitScreenMath.cs`) is pure and unit-tested;
 the Unity layer only converts positions and applies the plan.
 
+### Dialogue no-freeze
+
+Vanilla freezes every player through two paths, both taking a
+`shouldPlayerBeInactive` flag as their first argument:
+
+- `GameManager.OnConversationNew` → `PlayerFarming.SetInactive` on every player
+- `CoopManager.OnConversationNew` → `SetStateForAllPlayers(Inactive, ...)`
+
+Harmony prefixes clear that flag for ordinary conversations. The matching
+`OnConversationEnd` handlers get the same treatment, so closing a conversation
+does not reset a player who is still walking.
+
+Scripted conversations keep their original lock. They are recognised from the
+conversation itself: a letterbox already on screen, or any line whose
+`SetZoom` flag is set. Barks are ignored entirely.
+
+For ordinary conversations, the plugin anchors on the first non-player speaker
+seen (falling back to the player's position when the conversation began) and
+calls `MMConversation.Close` once the player moves beyond `ExitRadius`.
+`DialogueRules.cs` holds the distance/exception policy and is unit-tested.
+
 No game assembly is referenced: every game type is resolved by name at runtime.
 Unity reference assemblies come from the public `UnityEngine.Modules` NuGet
 package, so CI still needs no copyrighted DLLs. If a game update renames a
 target, the feature degrades and says so in `capabilities.json` instead of
 failing startup.
 
-Not implemented yet: dialogue no-freeze (milestone 6) and bulk tithes
-(milestone 7). Known limits:
+Not implemented yet: bulk tithes (milestone 7). Known limits:
 
+- scripted-conversation detection is conservative: a zoomed follower chat keeps
+  the vanilla lock rather than risk breaking a cutscene;
+- auto-exit tracks the main player; if a guest could start a conversation in a
+  future build, the anchor logic would need to follow that guest;
 - the vanilla health HUD only has two heart groups, so guests 3 and 4 share the
   second group until the HUD is cloned per player (`per-player-hud` in the
   capability report);

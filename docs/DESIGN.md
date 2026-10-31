@@ -1,7 +1,7 @@
 # Cult of the Lamb — Remote Play Enhanced
 
 Design decisions and technical plan.
-Status: **agreed; game internals verified against the installed build; milestones 3–5 implemented.**
+Status: **agreed; game internals verified against the installed build; milestones 3–6 implemented.**
 
 ## 1. What this is
 
@@ -228,15 +228,29 @@ default) so the change is not jarring. HUD stays as a single overlay for v1.
 
 ## 7. Dialogue behaviour
 
-- The global movement freeze is **not applied**: no `CoopPlayerFrozen`, no
-  `SetStateForAllPlayers(frozen)` around a conversation.
-- Each frame, if the player who opened the dialogue moves further than
-  `dialogue_exit_radius` from the follower, the conversation is closed
-  gracefully.
-- Configurable `dialogue_exit_radius` (default tuned in-game).
-- **Exception:** scripted/mandatory conversations (tutorial, first follower,
-  cutscene-driven) keep their original lock, since walking out of them would
-  break quest state.
+Vanilla freezes through two handlers that receive the same
+`shouldPlayerBeInactive` argument:
+
+- `GameManager.OnConversationNew(bool, bool, bool, PlayerFarming)` calls
+  `PlayerFarming.SetInactive()` on every player.
+- `CoopManager.OnConversationNew(bool, bool, bool, PlayerFarming)` calls
+  `SetStateForAllPlayers(Inactive, ...)`.
+
+Harmony prefixes clear that first argument for ordinary conversations. The
+matching `OnConversationEnd` / `ResetMainPlayerOnConversationEnd` handlers get
+the same prefix so ending a conversation does not reset a player who is still
+walking.
+
+- **No movement freeze** for ordinary conversations.
+- **Auto-exit:** the director latches onto the first non-player speaker's
+  position (falling back to the player's position when the conversation began)
+  and calls `MMConversation.Close(false, null, false)` once the player moves
+  beyond `ExitRadius`.
+- **Scripted conversations keep the vanilla lock.** They are detected from the
+  conversation data: `LetterBox.IsPlaying`, or any `ConversationEntry` with
+  `SetZoom`. Barks are skipped.
+- **Exception risk:** a zoomed follower chat is conservatively treated as
+  scripted. This trades a lost no-freeze case for not breaking a cutscene.
 
 ## 8. Bulk tithes
 
@@ -320,7 +334,10 @@ re-derive it.
 | `CameraFollowTarget.Awake` assigns `Instance` unconditionally | A second follower component would hijack the singleton; drive cameras directly instead |
 | `CameraFollowTarget.ForceSnapTo` and `IN_CONVERSATION` exist | Smooth hand-off on merge; force merged during dialogue/cutscenes |
 | `GameManager.InMenu` is a static bool | Merge while menus are open |
-| `CoopPlayerFrozen` / `SetStateForAllPlayers` are the freeze mechanism | Dialogue lock becomes per-player |
+| `GameManager.OnConversationNew` / `CoopManager.OnConversationNew` both receive `shouldPlayerBeInactive` | One prefix per handler removes the freeze |
+| `PlayerFarming.SetInactive` is only called by `OnConversationNew` (and a reward screen) | Conversation freeze has a single controllable entry point |
+| `ConversationEntry.SetZoom` and `LetterBox.IsPlaying` mark cinematic conversations | Scripted/mandatory dialogues can keep their lock |
+| `MMConversation.Close(bool, Action, bool)` is the graceful close path | Walk-away auto-exit uses the game's own close |
 | Lamb and Goat are skins on one Spine skeleton sharing one atlas | Guest avatars are a skin assignment, not new art |
 | Character atlas is 955 regions across `images/`, `Face/`, `Weapons/`, `effects/`, `Tools/`, `Items/`, `Curses/` | Skin authoring has a fixed, known vocabulary |
 | Base atlas lives in `resources.assets`; emissions in a bundle | Asset tooling must consult both locations |
@@ -332,7 +349,7 @@ re-derive it.
 3. ✅ Player expansion 2 → 4: slot array resized, guests 3–4 hot-join via `HandleCoopCreation`.
 4. ✅ Camera director: `MERGED` + `SPLIT_2`, hysteresis, interpolation.
 5. ✅ `SPLIT_4` / 3-pane layout, conversation and menu merge, pause-safe transitions.
-6. Dialogue no-freeze + auto-exit.
+6. ✅ Dialogue no-freeze + auto-exit.
 7. Bulk tithes.
 8. Tauri app: install, toggles, capability display, launch.
 9. CI releases + updater.

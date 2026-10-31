@@ -50,6 +50,7 @@ namespace RemotePlayEnhanced
 
             FourPlayerFeature.Install(Settings.PlayerCount.Value, CotlmpPresent);
             SplitScreenFeature.Install(CotlmpPresent);
+            DialogueNoFreezeFeature.Install(CotlmpPresent);
 
             WriteCapabilityReport();
         }
@@ -61,6 +62,8 @@ namespace RemotePlayEnhanced
 
             if (Settings.EnableAutoHotJoin.Value)
                 FourPlayerFeature.Tick();
+
+            DialogueNoFreezeFeature.Tick(Settings);
         }
 
         private void LateUpdate()
@@ -74,6 +77,7 @@ namespace RemotePlayEnhanced
         private void OnDestroy()
         {
             SplitScreenFeature.Shutdown();
+            DialogueNoFreezeFeature.Shutdown();
         }
 
         private static void WriteCapabilityReport()
@@ -123,6 +127,24 @@ namespace RemotePlayEnhanced
                 splitReason = SplitScreenFeature.Reason ?? "camera director unavailable";
             }
 
+            string dialogueState;
+            string dialogueReason;
+            if (!Settings.EnableDialogueFree.Value)
+            {
+                dialogueState = FeatureStatus.Unavailable;
+                dialogueReason = "disabled in config";
+            }
+            else if (DialogueNoFreezeFeature.Active)
+            {
+                dialogueState = FeatureStatus.Active;
+                dialogueReason = DialogueNoFreezeFeature.Reason;
+            }
+            else
+            {
+                dialogueState = FeatureStatus.Unavailable;
+                dialogueReason = DialogueNoFreezeFeature.Reason ?? "conversation patches unavailable";
+            }
+
             return new[]
             {
                 new FeatureStatus(FourPlayerFeature.Id, fourPlayerState, FourPlayerFeature.Reason),
@@ -133,7 +155,7 @@ namespace RemotePlayEnhanced
                         ? "vanilla two-player HUD is sufficient"
                         : "vanilla HUD has two heart groups; guests 3-4 share the second"),
                 new FeatureStatus(SplitScreenFeature.Id, splitState, splitReason),
-                new FeatureStatus("dialogue-no-freeze", FeatureStatus.Unavailable, "milestone 6: not implemented yet"),
+                new FeatureStatus(DialogueNoFreezeFeature.Id, dialogueState, dialogueReason),
                 new FeatureStatus("bulk-tithes", FeatureStatus.Unavailable, "milestone 7: not implemented yet")
             };
         }

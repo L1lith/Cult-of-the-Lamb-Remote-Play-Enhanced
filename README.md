@@ -5,9 +5,9 @@ dynamic split-screen** experience for **Steam Remote Play Together**, with a
 Tauri desktop app for installing, configuring and updating it.
 
 > **Status:** design agreed; game internals verified against the installed build;
-> milestones 3–5 (4-player expansion, dynamic split screen, conversation/menu
-> merge) implemented in `mod/`. Dialogue no-freeze and tithes are not implemented
-> yet.
+> milestones 3–6 (4-player expansion, dynamic split screen, conversation/menu
+> merge, dialogue no-freeze) implemented in `mod/`. Bulk tithes are not
+> implemented yet.
 > Read [`docs/DESIGN.md`](docs/DESIGN.md) first — it is the source of truth for
 > architecture, verified findings, the split-screen algorithm, and
 > version-tolerance strategy.
