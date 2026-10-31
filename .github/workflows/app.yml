@@ -5,12 +5,14 @@ on:
     paths:
       - "app/**"
       - "mod/**"
+      - "loader/**"
       - "NuGet.config"
       - ".github/workflows/app.yml"
   pull_request:
     paths:
       - "app/**"
       - "mod/**"
+      - "loader/**"
       - "NuGet.config"
       - ".github/workflows/app.yml"
   workflow_dispatch:
@@ -28,16 +30,35 @@ jobs:
         with:
           dotnet-version: "8.0.x"
 
-      - name: Restore
+      - name: Restore mod
         run: dotnet restore mod/RemotePlayEnhanced.csproj
 
-      - name: Build
+      - name: Restore bootstrap
+        run: dotnet restore mod/bootstrap/RemotePlayEnhanced.Bootstrap.csproj
+
+      - name: Build mod
         run: dotnet build mod/RemotePlayEnhanced.csproj -c Release --no-restore
+
+      - name: Build bootstrap
+        run: dotnet build mod/bootstrap/RemotePlayEnhanced.Bootstrap.csproj -c Release --no-restore
+
+      - name: Assemble standalone bundle
+        run: |
+          mkdir -p dist/bundle/RemotePlayEnhanced
+          cp loader/winhttp.dll loader/doorstop_config.ini dist/bundle/
+          cp mod/bin/Release/RemotePlayEnhanced.dll \
+             mod/bin/Release/0Harmony.dll \
+             dist/bundle/RemotePlayEnhanced/
+          cp mod/bootstrap/bin/Release/Bootstrap.dll \
+             dist/bundle/RemotePlayEnhanced/
+          cp mod/README.md dist/bundle/RemotePlayEnhanced/README.md
+          cp loader/LICENSE-Doorstop.txt dist/bundle/RemotePlayEnhanced/LICENSE-Doorstop.txt
+          cp loader/LICENSE-Harmony.txt dist/bundle/RemotePlayEnhanced/LICENSE-Harmony.txt
 
       - uses: actions/upload-artifact@v4
         with:
-          name: RemotePlayEnhanced
-          path: mod/bin/Release/RemotePlayEnhanced.dll
+          name: RemotePlayEnhanced-bundle
+          path: dist/bundle
           if-no-files-found: error
 
   app:
@@ -83,11 +104,11 @@ jobs:
         working-directory: app
         run: npm ci
 
-      - name: Download mod DLL
+      - name: Download standalone bundle
         uses: actions/download-artifact@v4
         with:
-          name: RemotePlayEnhanced
-          path: app/src-tauri/resources
+          name: RemotePlayEnhanced-bundle
+          path: app/src-tauri/resources/bundle
 
       - name: Test frontend logic
         working-directory: app

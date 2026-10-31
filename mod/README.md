@@ -1,8 +1,37 @@
 # mod
 
-BepInEx 5 plugin for *Cult of the Lamb*.
+Standalone *Cult of the Lamb* mod. No BepInEx is used: Doorstop loads
+`RemotePlayEnhanced/Bootstrap.dll`, which creates the mod component after the
+first scene loads.
 
-## Milestones 4–7 (current)
+## Installation
+
+Extract the release zip into the game folder:
+
+```
+Cult of the Lamb/
+  winhttp.dll                 Doorstop 3 proxy (public domain)
+  doorstop_config.ini         targetAssembly=RemotePlayEnhanced\Bootstrap.dll
+  RemotePlayEnhanced/
+    Bootstrap.dll
+    RemotePlayEnhanced.dll
+    0Harmony.dll              original Harmony 2
+    config.cfg
+    capabilities.json
+    RemotePlayEnhanced.log
+```
+
+The first launch creates `config.cfg` with defaults. The desktop app can write
+the same file and reinstall the bundle.
+
+If BepInEx is already installed, remove its `winhttp.dll` and
+`doorstop_config.ini` first (or use a clean game folder). Two Doorstop proxies
+cannot occupy the same `winhttp.dll`.
+
+This build does **not** load BepInEx plugins, so Thunderstore mods that depend
+on BepInEx will not work alongside it.
+
+## Milestones 4–8 + standalone loader (current)
 
 ### Four players
 
@@ -13,17 +42,17 @@ constructor:
 AllPlayerGameObjects = new GameObject[2];
 ```
 
-Everything downstream indexes that array, so at startup the plugin replaces it
-with one sized from `PlayerCount`. Once vanilla co-op is active, the plugin
-calls the game's own `HandleCoopCreation` routine once a second; that routine
-walks the unclaimed slots, checks the matching Rewired player for joysticks and
+Everything downstream indexes that array, so at startup the mod replaces it
+with one sized from `PlayerCount`. Once vanilla co-op is active, the mod calls
+the game's own `HandleCoopCreation` routine once a second; that routine walks
+the unclaimed slots, checks the matching Rewired player for joysticks and
 spawns a guest per controller. It exists in the shipped assembly but has no
 callers, so the pause-menu flow cannot reach it on its own.
 
-The first guest is still added through the pause menu (the vanilla
-assign-input flow). Guests 3 and 4 hot-join. All art and animation come from
-the existing player prefab; the game assigns the Goat skin to every guest
-because `PlayerFarming.isLamb` is false.
+The first guest is still added through the pause menu (the vanilla assign-input
+flow). Guests 3 and 4 hot-join. All art and animation come from the existing
+player prefab; the game assigns the Goat skin to every guest because
+`PlayerFarming.isLamb` is false.
 
 ### Dynamic split screen
 
@@ -43,10 +72,10 @@ interpolated over `TransitionMs`.
 The main camera stays the only object tagged `MainCamera`; up to three
 additional untagged cameras are created from its settings. While split, the
 game's `CameraFollowTarget` is disabled and all cameras are driven from the
-plugin's `LateUpdate`. On merge, the original rect is restored and
-`ForceSnapTo` hands the current position back before the follower is
-re-enabled. Conversations (`IN_CONVERSATION`), menus (`GameManager.InMenu`) and
-having fewer than two active players all force the merged view.
+mod's `LateUpdate`. On merge, the original rect is restored and `ForceSnapTo`
+hands the current position back before the follower is re-enabled.
+Conversations (`IN_CONVERSATION`), menus (`GameManager.InMenu`) and having
+fewer than two active players all force the merged view.
 
 The split-screen decision logic (`SplitScreenMath.cs`) is pure and unit-tested;
 the Unity layer only converts positions and applies the plan.
@@ -67,7 +96,7 @@ Scripted conversations keep their original lock. They are recognised from the
 conversation itself: a letterbox already on screen, or any line whose
 `SetZoom` flag is set. Barks are ignored entirely.
 
-For ordinary conversations, the plugin anchors on the first non-player speaker
+For ordinary conversations, the mod anchors on the first non-player speaker
 seen (falling back to the player's position when the conversation began) and
 calls `MMConversation.Close` once the player moves beyond `ExitRadius`.
 `DialogueRules.cs` holds the distance/exception policy and is unit-tested.
@@ -89,15 +118,31 @@ conversations and letterboxed cutscenes are ignored.
 
 `BulkTitheRules.cs` holds the radius and cooldown policy and is unit-tested.
 
+### Standalone loader
+
+`Bootstrap.dll` implements both Doorstop entry points:
+
+- `Doorstop.Loader.Main` for Doorstop 3;
+- `Doorstop.Entrypoint.Start` for Doorstop 4.
+
+It installs an `AssemblyResolve` handler so the mod, Harmony and any future
+dependency load from the mod folder, then waits for
+`RuntimeInitializeOnLoadMethod(AfterSceneLoad)` before creating the
+`RemotePlayEnhanced` GameObject. A `bootstrap.log` records each step.
+
+The mod itself is a plain `MonoBehaviour`. Feature code is unchanged; it uses a
+small local logger and cfg reader instead of a loader framework.
+
 No game assembly is referenced: every game type is resolved by name at runtime.
 Unity reference assemblies come from the public `UnityEngine.Modules` NuGet
 package, so CI still needs no copyrighted DLLs. If a game update renames a
 target, the feature degrades and says so in `capabilities.json` instead of
 failing startup.
 
-Not implemented yet: the Tauri app (milestone 8) and release CI (milestone 9).
 Known limits:
 
+- the bundled Doorstop proxy is Windows x64; Linux and macOS are not packaged;
+- no Thunderstore/BepInEx plugin compatibility — those mods need BepInEx;
 - bulk tithes is a keyboard shortcut on the host; remote gamepad players use the
   vanilla Extort interaction when the doctrine is available;
 - scripted-conversation detection is conservative: a zoomed follower chat keeps
@@ -116,8 +161,7 @@ Known limits:
 
 ## Settings
 
-Written to `BepInEx/config/com.l1lith.cotl.remoteplayenhanced.cfg`, and settable
-by the Tauri app:
+Written to `RemotePlayEnhanced/config.cfg`, and settable by the Tauri app:
 
 | Section | Key | Meaning |
 |---|---|---|
@@ -138,19 +182,33 @@ by the Tauri app:
 
 `SplitDistance` must exceed `MergeDistance`; that is the hysteresis that stops
 the view flapping at the boundary. If the configured values violate that, the
-camera clamps `SplitDistance` at runtime and the log records a warning.
+mod clamps `SplitDistance` at startup and the log records a warning.
+
+A feature switched off is not installed at startup (split screen, dialogue
+patches and tithe resolution all check the cfg in `Awake`).
 
 ## Capability report
 
-`BepInEx/plugins/RemotePlayEnhanced/capabilities.json` is rewritten on every
-start. Each feature is `active`, `degraded` or `unavailable`, with the reason,
-so the desktop app can show what actually works on the installed game version.
-The report also records `unityVersion`, `assemblyVersion` and `knownBuild`; the
-last is false when the game is not the verified 2022.3.62f2 build, in which case
-the plugin logs a warning and tries every target best-effort.
+`RemotePlayEnhanced/capabilities.json` is rewritten on every start. Each feature
+is `active`, `degraded` or `unavailable`, with the reason, so the desktop app
+can show what actually works on the installed game version. The report also
+records `unityVersion`, `assemblyVersion` and `knownBuild`; the last is false
+when the game is not the verified 2022.3.62f2 build, in which case the mod logs
+a warning and tries every target best-effort.
 
 ## COTLMP
 
-If `BepInEx/plugins/COTLMP/` exists, the mod logs a warning and keeps co-op
-patches disabled. Both mods patch `CoopManager`; running them together corrupts
-state.
+COTLMP is a BepInEx plugin, so it cannot be loaded by this standalone build. If
+a `BepInEx/plugins/COTLMP/` or `COTLMP/` folder is present, the mod logs a
+warning and keeps co-op patches disabled.
+
+## Building
+
+```bash
+dotnet build mod/RemotePlayEnhanced.csproj -c Release
+dotnet build mod/bootstrap/RemotePlayEnhanced.Bootstrap.csproj -c Release
+```
+
+The mod build copies `0Harmony.dll` from the `Lib.Harmony` package. The app's
+release workflow assembles `winhttp.dll`, `doorstop_config.ini` and the three
+DLLs into the standalone bundle.

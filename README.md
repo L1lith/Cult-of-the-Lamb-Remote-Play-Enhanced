@@ -1,14 +1,19 @@
 # Cult of the Lamb — Remote Play Enhanced
 
-A BepInEx mod that turns *Cult of the Lamb*'s local co-op into a **4-player,
-dynamic split-screen** experience for **Steam Remote Play Together**, with a
-Tauri desktop app for installing, configuring and updating it.
+A standalone *Cult of the Lamb* mod that turns local co-op into a
+**4-player, dynamic split-screen** experience for **Steam Remote Play Together**,
+with a Tauri desktop app for installing, configuring and updating it.
 
-> **Status:** design agreed; game internals verified against the installed build;
-> milestones 3–8 (4-player expansion, dynamic split screen, conversation/menu
-> merge, dialogue no-freeze, bulk tithes, desktop app) implemented. Release CI
-> and version-tolerance hardening are in place; the next game update should be
-> validated in-game.
+No BepInEx is used. The mod brings its own public-domain Doorstop proxy,
+bootstrap and Harmony runtime. That also means it does **not** load BepInEx
+plugins such as Thunderstore mods — the trade was made deliberately: standalone
+loading over third-party plugin compatibility. The bundled Doorstop proxy is
+Windows x64; Linux and macOS would need their own proxy and launcher.
+
+> **Status:** milestones 3–8 implemented (4-player expansion, dynamic split
+> screen, conversation/menu merge, dialogue no-freeze, bulk tithes, desktop app)
+> plus the standalone loader. Release CI and version-tolerance hardening are in
+> place; the next game update should be validated in-game.
 > Read [`docs/DESIGN.md`](docs/DESIGN.md) first — it is the source of truth for
 > architecture, verified findings, the split-screen algorithm, and
 > version-tolerance strategy.
@@ -43,12 +48,29 @@ Architecture detail, asset locations and the atlas vocabulary are in
 
 ```
 docs/DESIGN.md        architecture and decisions (source of truth)
-mod/                  BepInEx plugin — C#, Harmony
+loader/               Doorstop 3 proxy, config and public-domain license
+mod/                  standalone mod — C#, Harmony 2
   src/
+  bootstrap/          Doorstop entry point
 app/                  Tauri + Rust shell, SolidJS UI
   src/
   src-tauri/
 .github/workflows/    CI: build mod, build app, publish releases
+```
+
+Installed layout:
+
+```
+Cult of the Lamb/
+  winhttp.dll
+  doorstop_config.ini
+  RemotePlayEnhanced/
+    Bootstrap.dll
+    RemotePlayEnhanced.dll
+    0Harmony.dll
+    config.cfg
+    capabilities.json
+    RemotePlayEnhanced.log
 ```
 
 ## Features
@@ -60,14 +82,15 @@ app/                  Tauri + Rust shell, SolidJS UI
 | No dialogue freeze | Free movement during conversations; auto-exit when you walk away |
 | Bulk tithes | Collect every follower in radius at once; no doctrine requirement |
 
-COTLMP is **not** a dependency and is never loaded alongside this mod; see the
-design document for why.
+COTLMP is **not** a dependency. If a `COTLMP` folder is present the mod disables
+its co-op patches so the two cannot fight over `CoopManager`.
 
 ## Building
 
 ```bash
-# Mod (needs the .NET SDK; BepInEx and Unity stubs come from NuGet)
+# Mod + bootstrap (needs the .NET SDK; Unity stubs come from NuGet)
 dotnet build mod/RemotePlayEnhanced.csproj -c Release
+dotnet build mod/bootstrap/RemotePlayEnhanced.Bootstrap.csproj -c Release
 
 # App frontend (works in a browser without Rust)
 cd app
@@ -78,8 +101,9 @@ npm run dev
 npm run tauri dev
 ```
 
-For a packaged app, build the mod and copy `RemotePlayEnhanced.dll` into
-`app/src-tauri/resources/` first. See [`app/README.md`](app/README.md).
+For a packaged app, assemble the standalone bundle under
+`app/src-tauri/resources/bundle/` first. See
+[`app/README.md`](app/README.md).
 
 Tests:
 
@@ -91,10 +115,11 @@ cargo test --manifest-path app/src-tauri/core/Cargo.toml
 Releases are built by `.github/workflows/mod.yml` and
 `.github/workflows/app.yml`:
 
-- pushing a `mod-v*` tag builds and publishes a drop-in BepInEx zip;
+- pushing a `mod-v*` tag builds and publishes a standalone zip containing the
+  Doorstop proxy, bootstrap, mod and Harmony;
 - pushes to `main` create draft app releases with updater artifacts;
 - pull requests build both without publishing.
 
-The app workflow builds the mod, tests both the JavaScript config model and the
-dependency-free Rust core, then packages the Windows/macOS/Linux matrix with
-`tauri-action`. Updater signing keys are repo secrets.
+The app workflow builds the mod and bootstrap, tests both the JavaScript config
+model and the dependency-free Rust core, then packages the Windows/macOS/Linux
+matrix with `tauri-action`. Updater signing keys are repo secrets.

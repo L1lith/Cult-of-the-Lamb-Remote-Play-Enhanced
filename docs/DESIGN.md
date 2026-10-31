@@ -1,11 +1,11 @@
 # Cult of the Lamb — Remote Play Enhanced
 
 Design decisions and technical plan.
-Status: **agreed; game internals verified against the installed build; milestones 3–8 implemented; release CI in place.**
+Status: **agreed; game internals verified against the installed build; milestones 3–8 and the standalone loader implemented; release CI in place.**
 
 ## 1. What this is
 
-A BepInEx mod for *Cult of the Lamb* that turns the game's local co-op into a
+A standalone mod for *Cult of the Lamb* that turns the game's local co-op into a
 4-player, single-screen experience for **Steam Remote Play Together**, plus a
 Tauri desktop app that installs, configures and updates it.
 
@@ -29,7 +29,7 @@ Steam caps Remote Play Together at 4 players. That is our limit.
 | 7 | Tithes | Always available, no doctrine gate, radius-based |
 | 8 | Version support | Attempt install on any game version; degrade, never crash |
 | 9 | Builds | GitHub Actions produces releases; local build for testing |
-| 10 | Toolchain | C# mod (BepInEx + Harmony), Tauri + Rust shell, SolidJS UI |
+| 10 | Toolchain | C# mod (Doorstop 3 + Harmony 2), Tauri + Rust shell, SolidJS UI |
 
 ### Why COTLMP is not a dependency
 
@@ -40,8 +40,9 @@ handshake/heartbeat logic and remote player prefabs. Two mods patching
 `CoopManager` will corrupt each other's state. The mod therefore:
 
 - does **not** reference, load, or IL-merge COTLMP;
-- detects `BepInEx/plugins/COTLMP/` at startup and refuses to activate with a
-  clear log + in-game message, rather than producing undefined behaviour.
+- detects `BepInEx/plugins/COTLMP/` or `COTLMP/` at startup and keeps co-op
+  patches disabled, rather than producing undefined behaviour. This build does
+  not load BepInEx plugins, so COTLMP cannot actually run alongside it.
 
 We reimplement locally the only parts worth keeping: extra player avatars and
 the on-screen partner indicators.
@@ -204,7 +205,7 @@ default) so the change is not jarring. HUD stays as a single overlay for v1.
   `AudioListener`.
 - `CameraFollowTarget.Awake` assigns its static `Instance` unconditionally, so a
   second follower component would hijack the singleton. Instead, the game's
-  follower is disabled while split and every camera is driven from the plugin's
+  follower is disabled while split and every camera is driven from the mod's
   `LateUpdate`.
 - On merge, the main camera's original rect is restored and `ForceSnapTo` hands
   the current position to the follower before it is re-enabled, avoiding a jump.
@@ -283,15 +284,19 @@ The mod does not go through the interaction menu or the
 Requirement: install on any version; if a game update breaks us, rerun the app
 and it reinstalls.
 
+0. **Standalone loading.** The public-domain Doorstop 3 proxy loads
+   `RemotePlayEnhanced/Bootstrap.dll`; the bootstrap creates a `MonoBehaviour`
+   after Unity's first scene loads. No BepInEx loader or HarmonyX assembly is
+   involved; the mod ships original Harmony 2.
 1. **Reflection-based patching.** All targets are resolved by type/method name
    with signature fallbacks via `AccessTools`. No hardcoded RVAs, no binary
    patching.
 2. **Per-feature isolation.** Each feature is a patch group. `Install` catches
    reflection failures and disables only that feature. `Update` and `LateUpdate`
    are wrapped as well, so one unexpected target cannot spam or abort the
-   plugin.
+   mod.
 3. **Capability report.** On launch the mod writes
-   `BepInEx/plugins/RemotePlayEnhanced/capabilities.json` listing every feature
+   `RemotePlayEnhanced/capabilities.json` listing every feature
    as `active | degraded | unavailable` with the reason, plus `modVersion`,
    `unityVersion`, `assemblyVersion` and `knownBuild`.
 4. **Known build check.** The verified Unity build is pinned as
@@ -309,17 +314,19 @@ Implemented in `app/` as a Tauri 2 shell with an Astro 5 + SolidJS frontend
 - **Game detection:** parses `steamapps/libraryfolders.vdf` from the usual
   Steam roots and Windows registry, checks both `steamapps` and `SteamApps`,
   and accepts a manual folder override.
-- **Config:** the app parses and rewrites the mod's BepInEx config
-  (`BepInEx/config/com.l1lith.cotl.remoteplayenhanced.cfg`) rather than adding a
-  second JSON source of truth. The UI model mirrors the same keys; unknown keys
-  are reported before saving.
-- **Deploy:** copies the bundled `RemotePlayEnhanced.dll` into
-  `BepInEx/plugins/RemotePlayEnhanced/`; refuses if BepInEx 5 is missing.
-- **Feature toggles:** map 1:1 to config keys. The plugin now refuses to install
+- **Config:** the app parses and rewrites the mod's config
+  (`RemotePlayEnhanced/config.cfg`) rather than adding a second JSON source of
+  truth. The UI model mirrors the same keys; unknown keys are reported before
+  saving.
+- **Deploy:** installs the standalone bundle: `winhttp.dll` and
+  `doorstop_config.ini` at the game root, and `Bootstrap.dll`,
+  `RemotePlayEnhanced.dll`, `0Harmony.dll` under `RemotePlayEnhanced/`. It
+  refuses to overwrite a different `winhttp.dll` proxy.
+- **Feature toggles:** map 1:1 to config keys. The mod now refuses to install
   split screen, dialogue patches or tithe resolution when the feature is off at
   startup, so disabled means not applied rather than inert.
 - **Capabilities:** reads `capabilities.json` and shows active/degraded/
-  unavailable plus the plugin's reason.
+  unavailable plus the mod's reason.
 - **Launch:** opens `steam://rungameid/1313140`.
 - **Updates:** Tauri updater against the repository's `latest.json`.
 - **Browser demo:** `npm run dev` works without Rust, using localStorage for the
@@ -327,16 +334,16 @@ Implemented in `app/` as a Tauri 2 shell with an Astro 5 + SolidJS frontend
 
 ## 11. CI
 
-- `mod.yml` — compiles the C# plugin against the public Unity reference
-  assemblies and the BepInEx NuGet feed; uploads the DLL and a drop-in
-  `BepInEx/plugins/RemotePlayEnhanced/` zip. A `mod-v*` tag publishes the zip
-  as a GitHub release.
-- `app.yml` — builds the mod artifact first, then a Windows/macOS/Linux matrix:
+- `mod.yml` — compiles the mod and bootstrap against the public Unity reference
+  assemblies, then uploads a standalone bundle and zip containing Doorstop, the
+  bootstrap, the mod and Harmony 2. A `mod-v*` tag publishes the zip as a GitHub
+  release.
+- `app.yml` — builds the standalone bundle first, then a Windows/macOS/Linux matrix:
   `npm ci`, frontend tests, `cargo test` for the dependency-free core, Astro
   build, and `tauri-action`. Pull requests compile without bundling; pushes
   create a draft release with updater artifacts.
-- The app bundles the mod DLL as a Tauri resource, so the installer and the mod
-  version stay together.
+- The app bundles the standalone loader and mod as a Tauri resource, so the
+  installer and the mod version stay together.
 - Signing: `TAURI_SIGNING_PRIVATE_KEY` and
   `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` repo secrets. The updater public key in
   `tauri.conf.json` must be replaced with the matching public key before a real
@@ -388,7 +395,7 @@ re-derive it.
 ## 14. Milestones
 
 1. ✅ Design agreed (this document).
-2. ✅ Repo scaffold + mod loads under BepInEx, logs capability report.
+2. ✅ Repo scaffold + mod loader, logs capability report.
 3. ✅ Player expansion 2 → 4: slot array resized, guests 3–4 hot-join via `HandleCoopCreation`.
 4. ✅ Camera director: `MERGED` + `SPLIT_2`, hysteresis, interpolation.
 5. ✅ `SPLIT_4` / 3-pane layout, conversation and menu merge, pause-safe transitions.
@@ -397,3 +404,4 @@ re-derive it.
 8. ✅ Tauri app: install, toggles, capability display, launch, updater.
 9. ✅ CI workflows for the mod and the app matrix; release signing keys remain operator-supplied.
 10. ✅ Version-tolerance hardening: safe ticks, per-feature install gates, reported game build; validate in-game after the next game update.
+11. ✅ Standalone loader: Doorstop 3 + Bootstrap + original Harmony 2, no BepInEx; Thunderstore plugin compatibility intentionally dropped.
