@@ -127,7 +127,11 @@ namespace Doorstop
             {
                 string invoked = Environment.GetEnvironmentVariable("DOORSTOP_INVOKE_DLL_PATH");
                 if (!string.IsNullOrEmpty(invoked))
-                    return Path.GetDirectoryName(Path.GetFullPath(invoked));
+                {
+                    string full = Path.GetFullPath(invoked);
+                    if (File.Exists(full))
+                        return Path.GetDirectoryName(full);
+                }
 
                 string process = Environment.GetEnvironmentVariable("DOORSTOP_PROCESS_PATH");
                 if (!string.IsNullOrEmpty(process))
