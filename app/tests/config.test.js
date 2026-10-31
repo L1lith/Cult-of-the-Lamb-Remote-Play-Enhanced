@@ -162,7 +162,7 @@ test('setPath is immutable', () => {
 
 test('capability reports are validated and normalized', () => {
   const report = parseCapabilities(JSON.stringify({
-    modVersion: '0.2.0',
+    modVersion: '0.3.0',
     playerCount: 4,
     cotlmpPresent: false,
     unityVersion: '2022.3.62f2',
@@ -176,7 +176,7 @@ test('capability reports are validated and normalized', () => {
   }));
 
   assert.equal(report.ok, true);
-  assert.equal(report.modVersion, '0.2.0');
+  assert.equal(report.modVersion, '0.3.0');
   assert.equal(report.cotlmpPresent, false);
   assert.equal(report.unityVersion, '2022.3.62f2');
   assert.equal(report.knownBuild, false);
