@@ -5,6 +5,7 @@ app/target/
 app/dist/
 app/.astro/
 app/src-tauri/target/
+app/src-tauri/core/target/
 app/src-tauri/gen/
 node_modules/
 
