@@ -328,7 +328,9 @@ Implemented in `app/` as a Tauri 2 shell with an Astro 5 + SolidJS frontend
 ## 11. CI
 
 - `mod.yml` — compiles the C# plugin against the public Unity reference
-  assemblies and the BepInEx NuGet feed; uploads `RemotePlayEnhanced.dll`.
+  assemblies and the BepInEx NuGet feed; uploads the DLL and a drop-in
+  `BepInEx/plugins/RemotePlayEnhanced/` zip. A `mod-v*` tag publishes the zip
+  as a GitHub release.
 - `app.yml` — builds the mod artifact first, then a Windows/macOS/Linux matrix:
   `npm ci`, frontend tests, `cargo test` for the dependency-free core, Astro
   build, and `tauri-action`. Pull requests compile without bundling; pushes

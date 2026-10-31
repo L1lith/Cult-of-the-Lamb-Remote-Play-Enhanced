@@ -89,6 +89,12 @@ cargo test --manifest-path app/src-tauri/core/Cargo.toml
 ```
 
 Releases are built by `.github/workflows/mod.yml` and
-`.github/workflows/app.yml`. The app workflow builds the mod, tests both the
-JavaScript config model and the dependency-free Rust core, then packages the
-matrix with `tauri-action`. Updater signing keys are repo secrets.
+`.github/workflows/app.yml`:
+
+- pushing a `mod-v*` tag builds and publishes a drop-in BepInEx zip;
+- pushes to `main` create draft app releases with updater artifacts;
+- pull requests build both without publishing.
+
+The app workflow builds the mod, tests both the JavaScript config model and the
+dependency-free Rust core, then packages the Windows/macOS/Linux matrix with
+`tauri-action`. Updater signing keys are repo secrets.

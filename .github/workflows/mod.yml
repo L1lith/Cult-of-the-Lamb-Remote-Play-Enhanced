@@ -2,15 +2,18 @@ name: build-mod
 
 on:
   push:
-    paths:
-      - "mod/**"
-      - "NuGet.config"
-      - ".github/workflows/mod.yml"
+    branches: [main]
+    tags:
+      - "mod-v*"
   pull_request:
     paths:
       - "mod/**"
       - "NuGet.config"
+      - ".github/workflows/mod.yml"
   workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
   build:
@@ -38,3 +41,40 @@ jobs:
           name: RemotePlayEnhanced
           path: mod/bin/Release/RemotePlayEnhanced.dll
           if-no-files-found: error
+
+      - name: Package drop-in BepInEx zip
+        run: |
+          mkdir -p dist/package/BepInEx/plugins/RemotePlayEnhanced
+          cp mod/bin/Release/RemotePlayEnhanced.dll dist/package/BepInEx/plugins/RemotePlayEnhanced/
+          cp mod/README.md dist/package/BepInEx/plugins/RemotePlayEnhanced/README.md
+          cd dist/package
+          zip -r ../RemotePlayEnhanced.zip .
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: RemotePlayEnhanced-package
+          path: dist/RemotePlayEnhanced.zip
+          if-no-files-found: error
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/mod-v')
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: RemotePlayEnhanced-package
+          path: dist
+
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION="${GITHUB_REF_NAME#mod-v}"
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" dist/RemotePlayEnhanced.zip --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" dist/RemotePlayEnhanced.zip \
+              --title "Remote Play Enhanced v${VERSION}" \
+              --notes "BepInEx 5 plugin. Extract the zip into the Cult of the Lamb folder."
+          fi
