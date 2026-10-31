@@ -20,7 +20,7 @@ namespace RemotePlayEnhanced
     {
         public const string Guid = "com.l1lith.cotl.remoteplayenhanced";
         public const string Name = "Remote Play Enhanced";
-        public const string Version = "0.2.0";
+        public const string Version = "0.3.0";
         internal const string KnownUnityVersion = "2022.3.62f2";
 
         internal static ManualLogSource Log;

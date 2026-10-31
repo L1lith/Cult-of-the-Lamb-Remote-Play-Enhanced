@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 
 import {
   DEFAULT_CONFIG,
@@ -95,6 +96,15 @@ test('formatting and parsing round-trips the whole model', () => {
   assert.equal(config.general.playerCount, 2);
   assert.equal(config.camera.splitDistance, 25);
   assert.equal(config.tithes.key, 'F2');
+});
+
+test('default config matches the shared JS/Rust fixture', () => {
+  const fixture = readFileSync(
+    new URL('./fixtures/default.cfg', import.meta.url),
+    'utf8',
+  );
+  assert.equal(formatBepInExConfig(DEFAULT_CONFIG), fixture);
+  assert.deepEqual(configFromText(fixture).config, DEFAULT_CONFIG);
 });
 
 test('booleans format as BepInEx expects', () => {

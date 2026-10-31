@@ -290,6 +290,12 @@ mod tests {
     use super::*;
 
     #[test]
+    fn default_render_matches_shared_fixture() {
+        let fixture = include_str!("../../../tests/fixtures/default.cfg");
+        assert_eq!(ModConfig::default().render(), fixture);
+    }
+
+    #[test]
     fn default_renders_every_section() {
         let text = ModConfig::default().render();
         for needle in [

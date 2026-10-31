@@ -5,7 +5,7 @@
     <TargetFramework>net472</TargetFramework>
     <AssemblyName>RemotePlayEnhanced</AssemblyName>
     <RootNamespace>RemotePlayEnhanced</RootNamespace>
-    <Version>0.2.0</Version>
+    <Version>0.3.0</Version>
     <LangVersion>7.3</LangVersion>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
     <GenerateDocumentationFile>false</GenerateDocumentationFile>

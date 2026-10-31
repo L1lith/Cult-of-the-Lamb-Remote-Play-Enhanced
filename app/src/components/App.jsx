@@ -319,7 +319,7 @@ export default function App() {
                 onClick={deploy}
                 disabled={busy() || !appState().bepinexInstalled}
               >
-                Deploy / update mod
+                Reinstall / repair mod
               </button>
               <button class="button" onClick={launch} disabled={busy()}>
                 Launch through Steam
