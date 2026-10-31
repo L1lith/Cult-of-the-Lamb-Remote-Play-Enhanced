@@ -109,11 +109,16 @@ export default function App() {
     if (state.notice) setStatus({ kind: 'error', message: state.notice });
   };
 
-  const refresh = async () => {
+  const refresh = async (preserveConfig = false) => {
     setBusy(true);
     try {
       const state = await getAppState(overrideDir() || undefined);
-      applyState(state);
+      if (preserveConfig) {
+        setAppState(state);
+        setCapabilities(parseCapabilities(state.capabilitiesText));
+      } else {
+        applyState(state);
+      }
     } catch (error) {
       setStatus({ kind: 'error', message: String(error) });
     } finally {
@@ -145,6 +150,7 @@ export default function App() {
       const text = formatBepInExConfig(config());
       const result = await saveConfig(text, appState()?.gameDir ?? null);
       setSavedText(text);
+      setUnknownKeys([]);
       setStatus({ kind: 'ok', message: `Saved to ${result.path}` });
     } catch (error) {
       setStatus({ kind: 'error', message: String(error) });
@@ -169,11 +175,19 @@ export default function App() {
     try {
       const result = await deployMod(state.gameDir);
       setStatus({ kind: 'ok', message: result.message ?? 'Mod deployed.' });
-      await refresh();
+      await refresh(true);
     } catch (error) {
       setStatus({ kind: 'error', message: String(error) });
     } finally {
       setBusy(false);
+    }
+  };
+
+  const reveal = async (path) => {
+    try {
+      await openPath(path);
+    } catch (error) {
+      setStatus({ kind: 'error', message: String(error) });
     }
   };
 
@@ -255,7 +269,7 @@ export default function App() {
         <section class="card span-2">
           <div class="card-head">
             <h2>Game install</h2>
-            <button class="button ghost" onClick={refresh} disabled={busy()}>Rescan</button>
+            <button class="button ghost" onClick={() => refresh()} disabled={busy()}>Rescan</button>
           </div>
 
           <Show
@@ -279,7 +293,7 @@ export default function App() {
               <div class="fact">
                 <span class="fact-label">Folder</span>
                 <code>{appState().gameDir}</code>
-                <button class="link" onClick={() => openPath(appState().gameDir)}>open</button>
+                <button class="link" onClick={() => reveal(appState().gameDir)}>open</button>
               </div>
               <div class="fact">
                 <span class="fact-label">BepInEx</span>
@@ -381,7 +395,7 @@ export default function App() {
           <div class="card-head">
             <h2>Capability report</h2>
             <Show when={capabilities()?.ok}>
-              <button class="button ghost" onClick={refresh} disabled={busy()}>Refresh</button>
+              <button class="button ghost" onClick={() => refresh(true)} disabled={busy()}>Refresh</button>
             </Show>
           </div>
 
@@ -397,7 +411,17 @@ export default function App() {
               <span class="badge active">{counts().active} active</span>
               <span class="badge degraded">{counts().degraded} degraded</span>
               <span class="badge unavailable">{counts().unavailable} unavailable</span>
+              <Show when={capabilities().unityVersion}>
+                <span class="version-pill">Unity {capabilities().unityVersion}</span>
+              </Show>
             </div>
+
+            <Show when={capabilities().knownBuild === false}>
+              <p class="warning">
+                Unverified game build. Every target is attempted best-effort; check
+                the feature rows below.
+              </p>
+            </Show>
 
             <Show when={capabilities().cotlmpPresent}>
               <p class="warning">

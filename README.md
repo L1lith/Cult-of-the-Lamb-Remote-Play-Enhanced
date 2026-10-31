@@ -7,7 +7,8 @@ Tauri desktop app for installing, configuring and updating it.
 > **Status:** design agreed; game internals verified against the installed build;
 > milestones 3–8 (4-player expansion, dynamic split screen, conversation/menu
 > merge, dialogue no-freeze, bulk tithes, desktop app) implemented. Release CI
-> is in place; version-tolerance hardening against a future game update remains.
+> and version-tolerance hardening are in place; the next game update should be
+> validated in-game.
 > Read [`docs/DESIGN.md`](docs/DESIGN.md) first — it is the source of truth for
 > architecture, verified findings, the split-screen algorithm, and
 > version-tolerance strategy.

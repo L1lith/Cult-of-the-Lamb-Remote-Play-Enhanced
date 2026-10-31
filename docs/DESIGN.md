@@ -283,18 +283,23 @@ The mod does not go through the interaction menu or the
 Requirement: install on any version; if a game update breaks us, rerun the app
 and it reinstalls.
 
-1. **Reflection-based patching.** All targets resolved by type/method name with
-   signature fallbacks via `AccessTools`. No hardcoded RVAs, no binary patching.
-2. **Per-feature isolation.** Each feature is a patch group. A missing target
-   disables that feature and logs a warning; it never aborts startup.
+1. **Reflection-based patching.** All targets are resolved by type/method name
+   with signature fallbacks via `AccessTools`. No hardcoded RVAs, no binary
+   patching.
+2. **Per-feature isolation.** Each feature is a patch group. `Install` catches
+   reflection failures and disables only that feature. `Update` and `LateUpdate`
+   are wrapped as well, so one unexpected target cannot spam or abort the
+   plugin.
 3. **Capability report.** On launch the mod writes
-   `remoteplay-enhanced/capabilities.json` listing every feature as
-   `active | degraded | unavailable` with the reason.
-4. **Build manifest.** `game-versions.json` records known-good assembly
-   versions. Unknown version ⇒ best-effort mode with all targets attempted.
+   `BepInEx/plugins/RemotePlayEnhanced/capabilities.json` listing every feature
+   as `active | degraded | unavailable` with the reason, plus `modVersion`,
+   `unityVersion`, `assemblyVersion` and `knownBuild`.
+4. **Known build check.** The verified Unity build is pinned as
+   `2022.3.62f2`. A different build logs a warning and enters best-effort mode
+   with every target attempted; the app shows "unverified game build".
 5. **Repair path.** The Tauri app reads the capability report, shows which
-   features are inactive, and offers *Reinstall / Repair* which redeploys the
-   DLLs and rewrites config.
+   features are inactive, and offers *Deploy / update mod* plus *Rescan* to
+   redeploy the DLL and reload the report.
 
 ## 10. Tauri app
 
@@ -389,4 +394,4 @@ re-derive it.
 7. ✅ Bulk tithes: key-activated, radius-based, doctrine-free.
 8. ✅ Tauri app: install, toggles, capability display, launch, updater.
 9. ✅ CI workflows for the mod and the app matrix; release signing keys remain operator-supplied.
-10. Version-tolerance hardening against an actual game update.
+10. ✅ Version-tolerance hardening: safe ticks, per-feature install gates, reported game build; validate in-game after the next game update.

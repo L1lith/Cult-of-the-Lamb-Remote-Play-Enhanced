@@ -5,7 +5,7 @@ description = "Desktop companion for the Remote Play Enhanced mod"
 authors = ["L1lith"]
 edition = "2021"
 license = "MIT"
-rust-version = "1.77"
+rust-version = "1.90"
 
 [lib]
 name = "remote_play_enhanced_lib"

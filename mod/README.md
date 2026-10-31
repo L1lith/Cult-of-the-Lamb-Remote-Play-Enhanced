@@ -145,6 +145,9 @@ camera clamps `SplitDistance` at runtime and the log records a warning.
 `BepInEx/plugins/RemotePlayEnhanced/capabilities.json` is rewritten on every
 start. Each feature is `active`, `degraded` or `unavailable`, with the reason,
 so the desktop app can show what actually works on the installed game version.
+The report also records `unityVersion`, `assemblyVersion` and `knownBuild`; the
+last is false when the game is not the verified 2022.3.62f2 build, in which case
+the plugin logs a warning and tries every target best-effort.
 
 ## COTLMP
 

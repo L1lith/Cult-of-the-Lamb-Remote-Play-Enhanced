@@ -449,6 +449,9 @@ export function parseCapabilities(text) {
     modVersion: typeof data.modVersion === 'string' ? data.modVersion : 'unknown',
     playerCount: Number.isInteger(data.playerCount) ? data.playerCount : null,
     cotlmpPresent: data.cotlmpPresent === true,
+    unityVersion: typeof data.unityVersion === 'string' ? data.unityVersion : null,
+    assemblyVersion: typeof data.assemblyVersion === 'string' ? data.assemblyVersion : null,
+    knownBuild: typeof data.knownBuild === 'boolean' ? data.knownBuild : null,
     features,
   };
 }

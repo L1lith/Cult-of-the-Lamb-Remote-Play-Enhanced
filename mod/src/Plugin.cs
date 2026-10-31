@@ -1,4 +1,6 @@
+using System;
 using System.IO;
+using System.Reflection;
 using System.Text;
 using BepInEx;
 using BepInEx.Logging;
@@ -19,10 +21,16 @@ namespace RemotePlayEnhanced
         public const string Guid = "com.l1lith.cotl.remoteplayenhanced";
         public const string Name = "Remote Play Enhanced";
         public const string Version = "0.2.0";
+        internal const string KnownUnityVersion = "2022.3.62f2";
 
         internal static ManualLogSource Log;
         internal static ModConfig Settings;
         internal static bool CotlmpPresent;
+        internal static string UnityVersion = "unknown";
+        internal static string AssemblyVersion = "unknown";
+        internal static bool KnownBuild;
+
+        private static bool _tickFailureLogged;
 
         private void Awake()
         {
@@ -48,6 +56,16 @@ namespace RemotePlayEnhanced
                 Log.LogWarning("SplitDistance must exceed MergeDistance; the camera will clamp it.");
             }
 
+            UnityVersion = Application.unityVersion ?? "unknown";
+            AssemblyVersion = ResolveGameAssemblyVersion();
+            KnownBuild = UnityVersion == KnownUnityVersion;
+            if (!KnownBuild)
+            {
+                Log.LogWarning(
+                    "Unknown Unity build " + UnityVersion + " (known good: "
+                    + KnownUnityVersion + "); trying every target best-effort.");
+            }
+
             FourPlayerFeature.Install(Settings.PlayerCount.Value, CotlmpPresent);
             SplitScreenFeature.Install(CotlmpPresent);
             DialogueNoFreezeFeature.Install(CotlmpPresent);
@@ -61,13 +79,20 @@ namespace RemotePlayEnhanced
             if (Settings == null)
                 return;
 
-            if (Settings.EnableAutoHotJoin.Value)
-                FourPlayerFeature.Tick();
+            try
+            {
+                if (Settings.EnableAutoHotJoin.Value)
+                    FourPlayerFeature.Tick();
 
-            DialogueNoFreezeFeature.Tick(Settings);
+                DialogueNoFreezeFeature.Tick(Settings);
 
-            if (Settings.EnableBulkTithes.Value && Settings.BulkTitheKey.Value.IsDown())
-                BulkTitheFeature.Activate(Settings);
+                if (Settings.EnableBulkTithes.Value && Settings.BulkTitheKey.Value.IsDown())
+                    BulkTitheFeature.Activate(Settings);
+            }
+            catch (Exception e)
+            {
+                LogTickFailure(e);
+            }
         }
 
         private void LateUpdate()
@@ -75,7 +100,23 @@ namespace RemotePlayEnhanced
             if (Settings == null)
                 return;
 
-            SplitScreenFeature.Tick(Settings, Time.deltaTime);
+            try
+            {
+                SplitScreenFeature.Tick(Settings, Time.deltaTime);
+            }
+            catch (Exception e)
+            {
+                LogTickFailure(e);
+            }
+        }
+
+        private static void LogTickFailure(Exception e)
+        {
+            if (_tickFailureLogged)
+                return;
+
+            _tickFailureLogged = true;
+            Log.LogError("Tick failed; the remaining features keep running: " + e);
         }
 
         private void OnDestroy()
@@ -87,17 +128,48 @@ namespace RemotePlayEnhanced
 
         private static void WriteCapabilityReport()
         {
-            string dir = Path.Combine(Paths.PluginPath, "RemotePlayEnhanced");
-            Directory.CreateDirectory(dir);
+            try
+            {
+                string dir = Path.Combine(Paths.PluginPath, "RemotePlayEnhanced");
+                Directory.CreateDirectory(dir);
 
-            string path = Path.Combine(dir, "capabilities.json");
-            string report = CapabilityReport.Build(
-                Settings.PlayerCount.Value,
-                CotlmpPresent,
-                BuildFeatureStatuses());
+                string path = Path.Combine(dir, "capabilities.json");
+                string report = CapabilityReport.Build(
+                    Settings.PlayerCount.Value,
+                    CotlmpPresent,
+                    BuildFeatureStatuses(),
+                    UnityVersion,
+                    AssemblyVersion,
+                    KnownBuild);
 
-            File.WriteAllText(path, report, new UTF8Encoding(false));
-            Log.LogInfo("Capability report written to " + path);
+                File.WriteAllText(path, report, new UTF8Encoding(false));
+                Log.LogInfo("Capability report written to " + path);
+            }
+            catch (Exception e)
+            {
+                Log.LogWarning("Could not write the capability report: " + e.Message);
+            }
+        }
+
+        private static string ResolveGameAssemblyVersion()
+        {
+            try
+            {
+                foreach (Assembly assembly in AppDomain.CurrentDomain.GetAssemblies())
+                {
+                    if (assembly.GetName().Name != "Assembly-CSharp")
+                        continue;
+
+                    Version version = assembly.GetName().Version;
+                    return version != null ? version.ToString() : "unknown";
+                }
+            }
+            catch (Exception)
+            {
+                // Never let diagnostics break startup.
+            }
+
+            return "unknown";
         }
 
         private static FeatureStatus[] BuildFeatureStatuses()

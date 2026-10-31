@@ -155,6 +155,9 @@ test('capability reports are validated and normalized', () => {
     modVersion: '0.2.0',
     playerCount: 4,
     cotlmpPresent: false,
+    unityVersion: '2022.3.62f2',
+    assemblyVersion: '0.0.0.0',
+    knownBuild: false,
     features: [
       { id: 'four-players', state: 'active', reason: 'four slots' },
       { id: 'per-player-hud', state: 'unavailable', reason: 'two heart groups' },
@@ -165,6 +168,8 @@ test('capability reports are validated and normalized', () => {
   assert.equal(report.ok, true);
   assert.equal(report.modVersion, '0.2.0');
   assert.equal(report.cotlmpPresent, false);
+  assert.equal(report.unityVersion, '2022.3.62f2');
+  assert.equal(report.knownBuild, false);
   assert.equal(report.features[2].state, 'unavailable');
   assert.deepEqual(capabilityCounts(report), {
     active: 1,

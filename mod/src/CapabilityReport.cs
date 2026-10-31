@@ -34,11 +34,25 @@ namespace RemotePlayEnhanced
     {
         internal static string Build(int playerCount, bool cotlmpPresent, FeatureStatus[] features)
         {
+            return Build(playerCount, cotlmpPresent, features, string.Empty, string.Empty, false);
+        }
+
+        internal static string Build(
+            int playerCount,
+            bool cotlmpPresent,
+            FeatureStatus[] features,
+            string unityVersion,
+            string assemblyVersion,
+            bool knownBuild)
+        {
             var sb = new StringBuilder();
             sb.Append("{\n");
             sb.Append("  \"modVersion\": \"").Append(Escape(Plugin.Version)).Append("\",\n");
             sb.Append("  \"playerCount\": ").Append(playerCount).Append(",\n");
             sb.Append("  \"cotlmpPresent\": ").Append(cotlmpPresent ? "true" : "false").Append(",\n");
+            sb.Append("  \"unityVersion\": \"").Append(Escape(unityVersion)).Append("\",\n");
+            sb.Append("  \"assemblyVersion\": \"").Append(Escape(assemblyVersion)).Append("\",\n");
+            sb.Append("  \"knownBuild\": ").Append(knownBuild ? "true" : "false").Append(",\n");
             sb.Append("  \"features\": [\n");
 
             for (int i = 0; i < features.Length; i++)
