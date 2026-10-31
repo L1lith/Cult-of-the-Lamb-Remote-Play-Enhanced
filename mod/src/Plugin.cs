@@ -51,6 +51,7 @@ namespace RemotePlayEnhanced
             FourPlayerFeature.Install(Settings.PlayerCount.Value, CotlmpPresent);
             SplitScreenFeature.Install(CotlmpPresent);
             DialogueNoFreezeFeature.Install(CotlmpPresent);
+            BulkTitheFeature.Install(CotlmpPresent);
 
             WriteCapabilityReport();
         }
@@ -64,6 +65,9 @@ namespace RemotePlayEnhanced
                 FourPlayerFeature.Tick();
 
             DialogueNoFreezeFeature.Tick(Settings);
+
+            if (Settings.EnableBulkTithes.Value && Settings.BulkTitheKey.Value.IsDown())
+                BulkTitheFeature.Activate(Settings);
         }
 
         private void LateUpdate()
@@ -78,6 +82,7 @@ namespace RemotePlayEnhanced
         {
             SplitScreenFeature.Shutdown();
             DialogueNoFreezeFeature.Shutdown();
+            BulkTitheFeature.Shutdown();
         }
 
         private static void WriteCapabilityReport()
@@ -156,7 +161,14 @@ namespace RemotePlayEnhanced
                         : "vanilla HUD has two heart groups; guests 3-4 share the second"),
                 new FeatureStatus(SplitScreenFeature.Id, splitState, splitReason),
                 new FeatureStatus(DialogueNoFreezeFeature.Id, dialogueState, dialogueReason),
-                new FeatureStatus("bulk-tithes", FeatureStatus.Unavailable, "milestone 7: not implemented yet")
+                new FeatureStatus(
+                    BulkTitheFeature.Id,
+                    !Settings.EnableBulkTithes.Value
+                        ? FeatureStatus.Unavailable
+                        : (BulkTitheFeature.Active ? FeatureStatus.Active : FeatureStatus.Unavailable),
+                    !Settings.EnableBulkTithes.Value
+                        ? "disabled in config"
+                        : (BulkTitheFeature.Reason ?? "tithe members unavailable"))
             };
         }
 

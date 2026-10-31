@@ -2,7 +2,7 @@
 
 BepInEx 5 plugin for *Cult of the Lamb*.
 
-## Milestones 4–6 (current)
+## Milestones 4–7 (current)
 
 ### Four players
 
@@ -72,14 +72,34 @@ seen (falling back to the player's position when the conversation began) and
 calls `MMConversation.Close` once the player moves beyond `ExitRadius`.
 `DialogueRules.cs` holds the distance/exception policy and is unit-tested.
 
+### Bulk tithes
+
+Pressing the configured key (default `T`) collects from every active follower
+within `TitheRadius` of the main player. It does not require the
+`Possessions_ExtortTithes` doctrine and does not use the interaction menu.
+
+Vanilla pays through `interaction_FollowerInteraction.ExtortMoneyRoutine`, which
+spawns 3–6 pickups whose callback adds
+`InventoryItem.ITEM_TYPE.BLACK_GOLD`. The bulk path marks
+`FollowerBrainStats.PaidTithes` only after `Inventory.AddItem` succeeds, pays the
+same 3–6 black gold, and spawns one black-gold visual per follower when
+`ResourceCustomTarget.Create` resolves. Already-paid followers are skipped; the
+game resets the flag daily. A cooldown (default 2 s) stops key spam, and menus,
+conversations and letterboxed cutscenes are ignored.
+
+`BulkTitheRules.cs` holds the radius and cooldown policy and is unit-tested.
+
 No game assembly is referenced: every game type is resolved by name at runtime.
 Unity reference assemblies come from the public `UnityEngine.Modules` NuGet
 package, so CI still needs no copyrighted DLLs. If a game update renames a
 target, the feature degrades and says so in `capabilities.json` instead of
 failing startup.
 
-Not implemented yet: bulk tithes (milestone 7). Known limits:
+Not implemented yet: the Tauri app (milestone 8) and release CI (milestone 9).
+Known limits:
 
+- bulk tithes is a keyboard shortcut on the host; remote gamepad players use the
+  vanilla Extort interaction when the doctrine is available;
 - scripted-conversation detection is conservative: a zoomed follower chat keeps
   the vanilla lock rather than risk breaking a cutscene;
 - auto-exit tracks the main player; if a guest could start a conversation in a
@@ -113,6 +133,8 @@ by the Tauri app:
 | Camera | `MaxSplitSize` | largest orthographic half-height per viewport |
 | Dialogue | `ExitRadius` | walk-away distance that ends a conversation |
 | Tithes | `Radius` | collection radius |
+| Tithes | `Key` | bulk-collection key (default `T`) |
+| Tithes | `Cooldown` | seconds between bulk collections (default 2) |
 
 `SplitDistance` must exceed `MergeDistance`; that is the hysteresis that stops
 the view flapping at the boundary. If the configured values violate that, the

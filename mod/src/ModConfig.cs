@@ -1,4 +1,5 @@
 using BepInEx.Configuration;
+using UnityEngine;
 
 namespace RemotePlayEnhanced
 {
@@ -22,6 +23,8 @@ namespace RemotePlayEnhanced
         public ConfigEntry<float> MaxSplitSize;
         public ConfigEntry<float> DialogueExitRadius;
         public ConfigEntry<float> TitheRadius;
+        public ConfigEntry<KeyboardShortcut> BulkTitheKey;
+        public ConfigEntry<float> TitheCooldownSeconds;
 
         public static ModConfig Bind(ConfigFile cfg)
         {
@@ -81,6 +84,15 @@ namespace RemotePlayEnhanced
             c.TitheRadius = cfg.Bind(
                 "Tithes", "Radius", 8f,
                 "Radius in which followers pay tithes.");
+
+            c.BulkTitheKey = cfg.Bind(
+                "Tithes", "Key", new KeyboardShortcut(KeyCode.T),
+                "Key that collects tithes from every eligible follower in range.");
+
+            c.TitheCooldownSeconds = cfg.Bind(
+                "Tithes", "Cooldown", 2f,
+                new ConfigDescription("Seconds between bulk collections.",
+                    new AcceptableValueRange<float>(0.5f, 30f)));
 
             return c;
         }

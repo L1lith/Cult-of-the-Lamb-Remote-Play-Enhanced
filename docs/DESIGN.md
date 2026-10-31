@@ -1,7 +1,7 @@
 # Cult of the Lamb — Remote Play Enhanced
 
 Design decisions and technical plan.
-Status: **agreed; game internals verified against the installed build; milestones 3–6 implemented.**
+Status: **agreed; game internals verified against the installed build; milestones 3–7 implemented.**
 
 ## 1. What this is
 
@@ -141,6 +141,9 @@ Confirmed in `Assembly-CSharp.dll`.
 | `CameraManager`, `CameraZoomRoutine`, `CameraLimiter`, `CameraLimitBounds`, `CacheCameraZoomLimiter` | Singleton camera + the max-zoom clamp |
 | `CoopIndicatorLamb`, `CoopIndicatorGoat`, `CoopIndicatorXOffset/YOffset` | Existing partner indicators |
 | `FollowerInteractions_AlreadyPaidTithes`, `get/set_PaidTithes` | Tithe state, prevents double collection |
+| `interaction_FollowerInteraction.ExtortMoneyRoutine` pays `BLACK_GOLD` (ITEM_TYPE 20) | Bulk collection uses the same currency |
+| `ITEM_TYPE` exists twice as a nested enum; the item one is `InventoryItem.ITEM_TYPE` | Reflection must use the nested item enum, not the first match |
+| `FollowerManager.Followers` is the live follower list; `Follower.Brain.Stats.PaidTithes` is the gate | Bulk filter is distance + active + not paid |
 | `DoctrineUpgradeSystem_Possessions_ExtortTithes` | Existing Extort Tithes doctrine (not required by us) |
 | `MMTools.DialogueWheel`, `AdvanceDialogue`, `GetAdvanceDialogueButtonDown` | Dialogue state machine |
 
@@ -254,11 +257,26 @@ walking.
 
 ## 8. Bulk tithes
 
-- Always available. No `ExtortTithes` doctrine requirement.
-- On activation, every follower within `tithe_radius` of the player is collected
-  at once, mirroring the blessing flow's visual treatment.
-- Reuses `AlreadyPaidTithes` so no follower can be double-collected.
-- Configurable `tithe_radius` and an optional cooldown to avoid spam.
+Vanilla tithes are the follower interaction's Extort command:
+`interaction_FollowerInteraction.OnFollowerCommandFinalized` checks
+`FollowerBrainStats.PaidTithes`, sets it, then runs `ExtortMoneyRoutine`, which
+spawns 3–6 pickups whose callback calls
+`Inventory.AddItem(InventoryItem.ITEM_TYPE.BLACK_GOLD, 1, false)`.
+
+The mod does not go through the interaction menu or the
+`Possessions_ExtortTithes` doctrine:
+
+- **Activation:** a configurable key (default `T`) pressed in normal gameplay.
+  Menus, conversations and letterboxed cutscenes are ignored.
+- **Range:** every active `FollowerManager.Followers` entry within
+  `TitheRadius` of the main player, with a valid brain and
+  `PaidTithes == false`.
+- **Payment:** 3–6 black gold per follower via the same `Inventory.AddItem`
+  overload, and one `ResourceCustomTarget.Create` black-gold visual per
+  follower when that helper resolves.
+- **No double-pay:** `PaidTithes` is set only after the inventory call
+  succeeds, and it resets daily through the game's own `FollowerBrain.OnNewDay`.
+- **Cooldown:** configurable, default 2 s, with tick-count wrap handling.
 
 ## 9. Version tolerance
 
@@ -350,7 +368,7 @@ re-derive it.
 4. ✅ Camera director: `MERGED` + `SPLIT_2`, hysteresis, interpolation.
 5. ✅ `SPLIT_4` / 3-pane layout, conversation and menu merge, pause-safe transitions.
 6. ✅ Dialogue no-freeze + auto-exit.
-7. Bulk tithes.
+7. ✅ Bulk tithes: key-activated, radius-based, doctrine-free.
 8. Tauri app: install, toggles, capability display, launch.
 9. CI releases + updater.
 10. Version-tolerance hardening against an actual game update.
