@@ -2,6 +2,7 @@ using System.IO;
 using System.Text;
 using BepInEx;
 using BepInEx.Logging;
+using UnityEngine;
 
 namespace RemotePlayEnhanced
 {
@@ -42,7 +43,13 @@ namespace RemotePlayEnhanced
             // own settings object is named Settings so it does not shadow it.
             Settings = ModConfig.Bind(Config);
 
+            if (Settings.SplitDistance.Value <= Settings.MergeDistance.Value)
+            {
+                Log.LogWarning("SplitDistance must exceed MergeDistance; the camera will clamp it.");
+            }
+
             FourPlayerFeature.Install(Settings.PlayerCount.Value, CotlmpPresent);
+            SplitScreenFeature.Install(CotlmpPresent);
 
             WriteCapabilityReport();
         }
@@ -54,6 +61,19 @@ namespace RemotePlayEnhanced
 
             if (Settings.EnableAutoHotJoin.Value)
                 FourPlayerFeature.Tick();
+        }
+
+        private void LateUpdate()
+        {
+            if (Settings == null)
+                return;
+
+            SplitScreenFeature.Tick(Settings, Time.deltaTime);
+        }
+
+        private void OnDestroy()
+        {
+            SplitScreenFeature.Shutdown();
         }
 
         private static void WriteCapabilityReport()
@@ -85,6 +105,24 @@ namespace RemotePlayEnhanced
 
             bool twoPlayerHudIsEnough = Settings.PlayerCount.Value <= 2;
 
+            string splitState;
+            string splitReason;
+            if (!Settings.EnableSplitScreen.Value)
+            {
+                splitState = FeatureStatus.Unavailable;
+                splitReason = "disabled in config";
+            }
+            else if (SplitScreenFeature.Active)
+            {
+                splitState = FeatureStatus.Active;
+                splitReason = SplitScreenFeature.Reason;
+            }
+            else
+            {
+                splitState = FeatureStatus.Unavailable;
+                splitReason = SplitScreenFeature.Reason ?? "camera director unavailable";
+            }
+
             return new[]
             {
                 new FeatureStatus(FourPlayerFeature.Id, fourPlayerState, FourPlayerFeature.Reason),
@@ -94,7 +132,7 @@ namespace RemotePlayEnhanced
                     twoPlayerHudIsEnough
                         ? "vanilla two-player HUD is sufficient"
                         : "vanilla HUD has two heart groups; guests 3-4 share the second"),
-                new FeatureStatus("dynamic-split-screen", FeatureStatus.Unavailable, "milestone 4: not implemented yet"),
+                new FeatureStatus(SplitScreenFeature.Id, splitState, splitReason),
                 new FeatureStatus("dialogue-no-freeze", FeatureStatus.Unavailable, "milestone 6: not implemented yet"),
                 new FeatureStatus("bulk-tithes", FeatureStatus.Unavailable, "milestone 7: not implemented yet")
             };

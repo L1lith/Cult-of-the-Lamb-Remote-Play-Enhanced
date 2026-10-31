@@ -4,10 +4,12 @@ on:
   push:
     paths:
       - "mod/**"
+      - "NuGet.config"
       - ".github/workflows/mod.yml"
   pull_request:
     paths:
       - "mod/**"
+      - "NuGet.config"
   workflow_dispatch:
 
 jobs:

@@ -16,6 +16,10 @@ namespace RemotePlayEnhanced
 
         public ConfigEntry<float> MergeDistance;
         public ConfigEntry<float> SplitDistance;
+        public ConfigEntry<int> CameraTransitionMs;
+        public ConfigEntry<int> CameraStateDwellMs;
+        public ConfigEntry<float> CameraPadding;
+        public ConfigEntry<float> MaxSplitSize;
         public ConfigEntry<float> DialogueExitRadius;
         public ConfigEntry<float> TitheRadius;
 
@@ -51,6 +55,24 @@ namespace RemotePlayEnhanced
             c.SplitDistance = cfg.Bind(
                 "Camera", "SplitDistance", 18f,
                 "Player spread above which the view splits. Must exceed MergeDistance.");
+
+            c.CameraTransitionMs = cfg.Bind(
+                "Camera", "TransitionMs", 250,
+                new ConfigDescription("Viewport transition time in milliseconds.",
+                    new AcceptableValueRange<int>(50, 1500)));
+
+            c.CameraStateDwellMs = cfg.Bind(
+                "Camera", "StateDwellMs", 500,
+                new ConfigDescription("Minimum time between split layouts in milliseconds.",
+                    new AcceptableValueRange<int>(0, 5000)));
+
+            c.CameraPadding = cfg.Bind(
+                "Camera", "Padding", 1.5f,
+                "World units kept around a cluster inside its viewport.");
+
+            c.MaxSplitSize = cfg.Bind(
+                "Camera", "MaxSplitSize", 16f,
+                "Largest orthographic half-height a split viewport may use.");
 
             c.DialogueExitRadius = cfg.Bind(
                 "Dialogue", "ExitRadius", 6f,

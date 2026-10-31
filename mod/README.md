@@ -2,11 +2,12 @@
 
 BepInEx 5 plugin for *Cult of the Lamb*.
 
-## Milestone 3 (current)
+## Milestone 4 (current)
 
-The plugin now lifts the two-player cap.
+### Four players
 
-The cap is a single allocation inside `CoopManager`'s static constructor:
+The two-player cap is a single allocation inside `CoopManager`'s static
+constructor:
 
 ```csharp
 AllPlayerGameObjects = new GameObject[2];
@@ -24,15 +25,50 @@ assign-input flow). Guests 3 and 4 hot-join. All art and animation come from
 the existing player prefab; the game assigns the Goat skin to every guest
 because `PlayerFarming.isLamb` is false.
 
-Nothing here references `Assembly-CSharp` or `UnityEngine`: game types are
-resolved by name at runtime, which keeps CI free of copyrighted DLLs. If a game
-update renames a target, the feature degrades and says so in
-`capabilities.json` instead of failing startup.
+### Dynamic split screen
 
-Not implemented yet: split screen (milestone 4), dialogue no-freeze
-(milestone 6), bulk tithes (milestone 7). The vanilla health HUD only has two
-heart groups, so guests 3 and 4 share the second group's display until the HUD
-is cloned per player; `capabilities.json` reports this as `per-player-hud`.
+While players are close the game keeps its normal single camera. When the
+maximum pairwise spread crosses `SplitDistance`, the director picks a layout:
+
+- **2 viewports** when the players form two clusters that each fit a half;
+  vertical or horizontal depending on which way the clusters separate.
+- **3 viewports** for three spread players: one full-height half plus two
+  right-hand quadrants.
+- **4 viewports** (quadrants) when every player is far enough apart.
+
+It falls back to one view when the spread drops below `MergeDistance`, so the
+view does not flap at the threshold. Viewport rects and orthographic size are
+interpolated over `TransitionMs`.
+
+The main camera stays the only object tagged `MainCamera`; up to three
+additional untagged cameras are created from its settings. While split, the
+game's `CameraFollowTarget` is disabled and all cameras are driven from the
+plugin's `LateUpdate`. On merge, the original rect is restored and
+`ForceSnapTo` hands the current position back before the follower is
+re-enabled. Conversations (`IN_CONVERSATION`), menus (`GameManager.InMenu`) and
+having fewer than two active players all force the merged view.
+
+The split-screen decision logic (`SplitScreenMath.cs`) is pure and unit-tested;
+the Unity layer only converts positions and applies the plan.
+
+No game assembly is referenced: every game type is resolved by name at runtime.
+Unity reference assemblies come from the public `UnityEngine.Modules` NuGet
+package, so CI still needs no copyrighted DLLs. If a game update renames a
+target, the feature degrades and says so in `capabilities.json` instead of
+failing startup.
+
+Not implemented yet: dialogue no-freeze (milestone 6) and bulk tithes
+(milestone 7). Known limits:
+
+- the vanilla health HUD only has two heart groups, so guests 3 and 4 share the
+  second group until the HUD is cloned per player (`per-player-hud` in the
+  capability report);
+- clone cameras copy the camera component but not post-processing components,
+  so colour grading may differ in split viewports;
+- clone cameras are not clamped by `CameraLimiter` yet, so edges may show
+  outside the room;
+- `Camera.main` keeps viewport 0's rect, so mouse-to-world aim is only exact
+  there; gamepad players are unaffected.
 
 ## Settings
 
@@ -47,11 +83,16 @@ by the Tauri app:
 | Features | `DialogueNoFreeze` | movement during conversations |
 | Features | `BulkTithes` | collect every follower in range |
 | Camera | `MergeDistance` / `SplitDistance` | hysteresis thresholds |
+| Camera | `TransitionMs` | viewport blend time (default 250) |
+| Camera | `StateDwellMs` | minimum time between split layouts (default 500) |
+| Camera | `Padding` | world units kept around a cluster |
+| Camera | `MaxSplitSize` | largest orthographic half-height per viewport |
 | Dialogue | `ExitRadius` | walk-away distance that ends a conversation |
 | Tithes | `Radius` | collection radius |
 
 `SplitDistance` must exceed `MergeDistance`; that is the hysteresis that stops
-the view flapping at the boundary.
+the view flapping at the boundary. If the configured values violate that, the
+camera clamps `SplitDistance` at runtime and the log records a warning.
 
 ## Capability report
 

@@ -10,13 +10,15 @@
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
     <GenerateDocumentationFile>false</GenerateDocumentationFile>
     <!-- Game assemblies are still not referenced: every game type is resolved
-         by name at runtime, so CI stays free of copyrighted DLLs. HarmonyX is
-         used only for AccessTools and is already a BepInEx dependency. -->
+         by name at runtime, so CI never needs copyrighted DLLs. UnityEngine
+         reference assemblies come from the public UnityEngine.Modules package;
+         they are compile-time stubs only. -->
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="BepInEx.Core" Version="5.4.21" />
     <PackageReference Include="HarmonyX" Version="2.10.2" />
+    <PackageReference Include="UnityEngine.Modules" Version="2021.3.33" IncludeAssets="compile" />
     <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="all" />
   </ItemGroup>
 

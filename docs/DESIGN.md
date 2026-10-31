@@ -1,7 +1,7 @@
 # Cult of the Lamb — Remote Play Enhanced
 
 Design decisions and technical plan.
-Status: **agreed; game internals verified against the installed build; milestone 3 implemented.**
+Status: **agreed; game internals verified against the installed build; milestones 3–5 implemented.**
 
 ## 1. What this is
 
@@ -185,25 +185,32 @@ panes. With 4 players in two pairs, 2×2-style halves.
 |---|---|
 | `MERGED` | full rect |
 | `SPLIT_2` | vertical split if clusters differ mainly in X, horizontal if mainly in Y |
-| `SPLIT_4` | quadrants |
+| `SPLIT_4` | quadrants for 4 players; a 1 + 2 pane layout for 3 players |
 
-Transitions interpolate the `camera.rect` values over `transition_ms` (~250 ms)
-so the change is not jarring. HUD stays as a single overlay for v1.
+Transitions interpolate the `camera.rect` values over `transition_ms` (250 ms by
+default) so the change is not jarring. HUD stays as a single overlay for v1.
 
 ### 6.4 Camera implementation
 
 - The main camera stays the only object tagged `MainCamera`. **This is critical**
   — anything tagged `MainCamera` hijacks every `Camera.main` world/screen
   conversion in the game.
-- Up to 3 additional cameras are cloned from the main camera's settings
-  (orthographic, culling mask, clear flags, near/far) and driven by our own
-  `SplitViewFollower` component, **not** by the game's singleton
-  `CameraFollowTarget`.
-- Only one `AudioListener` may be active; clones have theirs disabled.
-- `CameraLimiter` / `CameraLimitBounds` are reused with a configurable raised
-  max zoom-out, so players are no longer confined by the vanilla camera bounds.
-- While `CameraSetConversationMode` is active (cutscenes, scripted dialogue),
-  the director is forced to `MERGED` and restored afterwards.
+- Up to 3 additional cameras are created as new GameObjects with `Camera`
+  components and `Camera.CopyFrom(main)` settings (orthographic, culling mask,
+  clear flags, depth). They are **not** tagged `MainCamera` and have no
+  `AudioListener`.
+- `CameraFollowTarget.Awake` assigns its static `Instance` unconditionally, so a
+  second follower component would hijack the singleton. Instead, the game's
+  follower is disabled while split and every camera is driven from the plugin's
+  `LateUpdate`.
+- On merge, the main camera's original rect is restored and `ForceSnapTo` hands
+  the current position to the follower before it is re-enabled, avoiding a jump.
+- Viewports are composed on top of the original rect, so letterboxed or scripted
+  camera rects still work.
+- While `IN_CONVERSATION` is set (cutscenes, scripted dialogue) or
+  `GameManager.InMenu` is true, the director is forced to `MERGED`.
+- Split-screen math is pure and unit-tested; Unity glue only converts positions
+  and applies the resulting plan.
 
 ### 6.5 Known risks
 
@@ -213,8 +220,11 @@ so the change is not jarring. HUD stays as a single overlay for v1.
 | HUD (`Screen Space - Overlay`) spans the whole window when split | accepted for v1; per-viewport HUD is a later option |
 | Vanilla health HUD has two heart groups (`health_firstPlayer`, `health_secondPlayer`) | guests 3–4 reuse the second group; per-player HUD cloning is later work |
 | Two–four full scene renders | stylised 2D; measure, expected fine |
-| Cutscene camera takeover | force merge during conversation mode |
+| Cutscene camera takeover | force merge during conversation mode and menus |
 | Flapping at threshold | hysteresis + interpolation |
+| Post-processing components are not copied to clone cameras | split viewports render without colour grading; copy later |
+| Clone cameras are not clamped by `CameraLimiter` | viewport edges may show outside the room; reuse limits later |
+| Mouse/world conversions use the main viewport | mouse aim is only exact in viewport 0; gamepad players are unaffected |
 
 ## 7. Dialogue behaviour
 
@@ -307,6 +317,9 @@ re-derive it.
 | `PlayerFarming.SetSkin` treats every `isLamb == false` player as the Goat | Guests 2–4 share the Goat skin |
 | `Health_Manager.Init` has one single-player and one two-player layout | health HUD for guests 3–4 is degraded until per-player HUD cloning |
 | `CameraFollowTarget` supports multiple targets and zoom/offset setters | Split-screen director can use supported APIs |
+| `CameraFollowTarget.Awake` assigns `Instance` unconditionally | A second follower component would hijack the singleton; drive cameras directly instead |
+| `CameraFollowTarget.ForceSnapTo` and `IN_CONVERSATION` exist | Smooth hand-off on merge; force merged during dialogue/cutscenes |
+| `GameManager.InMenu` is a static bool | Merge while menus are open |
 | `CoopPlayerFrozen` / `SetStateForAllPlayers` are the freeze mechanism | Dialogue lock becomes per-player |
 | Lamb and Goat are skins on one Spine skeleton sharing one atlas | Guest avatars are a skin assignment, not new art |
 | Character atlas is 955 regions across `images/`, `Face/`, `Weapons/`, `effects/`, `Tools/`, `Items/`, `Curses/` | Skin authoring has a fixed, known vocabulary |
@@ -317,8 +330,8 @@ re-derive it.
 1. ✅ Design agreed (this document).
 2. ✅ Repo scaffold + mod loads under BepInEx, logs capability report.
 3. ✅ Player expansion 2 → 4: slot array resized, guests 3–4 hot-join via `HandleCoopCreation`.
-4. Camera director: `MERGED` + `SPLIT_2`, hysteresis, interpolation.
-5. `SPLIT_4`, cutscene merge, pausing.
+4. ✅ Camera director: `MERGED` + `SPLIT_2`, hysteresis, interpolation.
+5. ✅ `SPLIT_4` / 3-pane layout, conversation and menu merge, pause-safe transitions.
 6. Dialogue no-freeze + auto-exit.
 7. Bulk tithes.
 8. Tauri app: install, toggles, capability display, launch.
