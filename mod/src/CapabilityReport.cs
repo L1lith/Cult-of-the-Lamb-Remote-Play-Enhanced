@@ -27,8 +27,8 @@ namespace RemotePlayEnhanced
     /// Emits capabilities.json. The Tauri app reads this to show which features
     /// are active, degraded or unavailable, and why.
     ///
-    /// Written by hand (no JSON dependency) because BepInEx 5 does not ship a
-    /// serialiser we can rely on and the payload is small and fixed.
+    /// Written by hand (no JSON dependency) because the payload is small and
+    /// fixed and the mod should not pull in a serialiser.
     /// </summary>
     internal static class CapabilityReport
     {

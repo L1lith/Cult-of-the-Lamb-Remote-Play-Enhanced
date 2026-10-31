@@ -1,6 +1,8 @@
 # Build output
 mod/bin/
 mod/obj/
+mod/bootstrap/bin/
+mod/bootstrap/obj/
 app/target/
 app/dist/
 app/.astro/
@@ -10,8 +12,8 @@ app/src-tauri/gen/
 node_modules/
 
 # Bundled mod DLL (CI copies the built artifact in)
-app/src-tauri/resources/*.dll
-app/src-tauri/resources/*.pdb
+app/src-tauri/resources/**/*.dll
+app/src-tauri/resources/**/*.pdb
 
 # Local tooling
 .vs/

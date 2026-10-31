@@ -5,10 +5,11 @@
     <TargetFramework>net472</TargetFramework>
     <AssemblyName>RemotePlayEnhanced</AssemblyName>
     <RootNamespace>RemotePlayEnhanced</RootNamespace>
-    <Version>0.3.0</Version>
+    <Version>0.4.0</Version>
     <LangVersion>7.3</LangVersion>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
     <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
     <!-- Game assemblies are still not referenced: every game type is resolved
          by name at runtime, so CI never needs copyrighted DLLs. UnityEngine
          reference assemblies come from the public UnityEngine.Modules package;
@@ -16,8 +17,16 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="BepInEx.Core" Version="5.4.21" />
-    <PackageReference Include="HarmonyX" Version="2.10.2" />
+    <!-- The bootstrap is a separate assembly; keep its sources and generated
+         files out of the mod's default glob. -->
+    <Compile Remove="bootstrap/**" />
+    <None Remove="bootstrap/**" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Original Harmony 2, not HarmonyX. The mod is loaded by its own
+         Doorstop bootstrap, so no BepInEx assembly is referenced. -->
+    <PackageReference Include="Lib.Harmony" Version="2.4.3" />
     <PackageReference Include="UnityEngine.Modules" Version="2021.3.33" IncludeAssets="compile" />
     <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="all" />
   </ItemGroup>

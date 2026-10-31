@@ -2,58 +2,61 @@ using System;
 using System.IO;
 using System.Reflection;
 using System.Text;
-using BepInEx;
-using BepInEx.Logging;
 using UnityEngine;
 
 namespace RemotePlayEnhanced
 {
     /// <summary>
-    /// Plugin entry point. Loads config, installs each feature independently,
-    /// then writes a capability report the desktop app can display.
+    /// Standalone mod entry point. Doorstop creates a GameObject with this
+    /// component; no mod-loader framework is involved.
     ///
-    /// A feature that cannot resolve its targets logs a warning and stays
-    /// inactive; it never aborts startup.
+    /// Each feature installs independently. A missing reflection target logs a
+    /// warning and disables only that feature.
     /// </summary>
-    [BepInPlugin(Guid, Name, Version)]
-    public class Plugin : BaseUnityPlugin
+    public class Plugin : MonoBehaviour
     {
         public const string Guid = "com.l1lith.cotl.remoteplayenhanced";
         public const string Name = "Remote Play Enhanced";
-        public const string Version = "0.3.0";
+        public const string Version = "0.4.0";
         internal const string KnownUnityVersion = "2022.3.62f2";
 
-        internal static ManualLogSource Log;
+        internal static ModLog Log;
         internal static ModConfig Settings;
         internal static bool CotlmpPresent;
         internal static string UnityVersion = "unknown";
         internal static string AssemblyVersion = "unknown";
         internal static bool KnownBuild;
+        internal static string ModDirectory = ".";
 
         private static bool _tickFailureLogged;
+        private static bool _awakeCompleted;
 
         private void Awake()
         {
-            Log = Logger;
+            if (_awakeCompleted)
+                return;
+            _awakeCompleted = true;
 
-            Log.LogInfo(Name + " " + Version + " loading");
+            ModDirectory = ResolveModDirectory();
+            Log = new ModLog(Path.Combine(ModDirectory, "RemotePlayEnhanced.log"));
+            Log.LogInfo(Name + " " + Version + " loading from " + ModDirectory);
 
             string cotlmpPath;
             CotlmpPresent = DetectCotlmp(out cotlmpPath);
             if (CotlmpPresent)
             {
-                // COTLMP also patches CoopManager; running both corrupts state.
                 Log.LogWarning("COTLMP detected at " + cotlmpPath);
                 Log.LogWarning("Co-op patches will stay disabled while COTLMP is installed.");
             }
 
-            // "Config" is BaseUnityPlugin's ConfigFile property. The plugin's
-            // own settings object is named Settings so it does not shadow it.
-            Settings = ModConfig.Bind(Config);
-
-            if (Settings.SplitDistance.Value <= Settings.MergeDistance.Value)
+            try
             {
-                Log.LogWarning("SplitDistance must exceed MergeDistance; the camera will clamp it.");
+                Settings = ModConfig.Load(Path.Combine(ModDirectory, "config.cfg"));
+            }
+            catch (Exception e)
+            {
+                Log.LogError("Could not load config.cfg; using defaults: " + e);
+                Settings = ModConfig.Defaults();
             }
 
             UnityVersion = Application.unityVersion ?? "unknown";
@@ -126,14 +129,28 @@ namespace RemotePlayEnhanced
             BulkTitheFeature.Shutdown();
         }
 
+        private static string ResolveModDirectory()
+        {
+            try
+            {
+                string location = Assembly.GetExecutingAssembly().Location;
+                string directory = Path.GetDirectoryName(location);
+                if (!string.IsNullOrEmpty(directory))
+                    return directory;
+            }
+            catch (Exception)
+            {
+                // Fall through to the process directory.
+            }
+            return Directory.GetCurrentDirectory();
+        }
+
         private static void WriteCapabilityReport()
         {
             try
             {
-                string dir = Path.Combine(Paths.PluginPath, "RemotePlayEnhanced");
-                Directory.CreateDirectory(dir);
-
-                string path = Path.Combine(dir, "capabilities.json");
+                Directory.CreateDirectory(ModDirectory);
+                string path = Path.Combine(ModDirectory, "capabilities.json");
                 string report = CapabilityReport.Build(
                     Settings.PlayerCount.Value,
                     CotlmpPresent,
@@ -246,7 +263,16 @@ namespace RemotePlayEnhanced
 
         private static bool DetectCotlmp(out string path)
         {
-            path = Path.Combine(Paths.PluginPath, "COTLMP");
+            string gameRoot = Path.GetFullPath(Path.Combine(ModDirectory, ".."));
+            string bepinexPlugin = Path.Combine(
+                gameRoot, "BepInEx", "plugins", "COTLMP");
+            if (Directory.Exists(bepinexPlugin))
+            {
+                path = bepinexPlugin;
+                return true;
+            }
+
+            path = Path.Combine(gameRoot, "COTLMP");
             return Directory.Exists(path);
         }
     }

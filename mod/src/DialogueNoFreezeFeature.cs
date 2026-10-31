@@ -327,7 +327,7 @@ namespace RemotePlayEnhanced
 
             try
             {
-                _harmony.UnpatchSelf();
+                _harmony.UnpatchAll(_harmony.Id);
             }
             catch (Exception)
             {
