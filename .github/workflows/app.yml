@@ -94,15 +94,15 @@ jobs:
         env:
           ASTRO_TELEMETRY_DISABLED: "1"
 
-      - name: Build app (pull request)
-        if: github.event_name == 'pull_request'
+      - name: Build app without release
+        if: github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref != 'refs/heads/main')
         uses: tauri-apps/tauri-action@v0
         with:
           projectPath: app
           args: --no-bundle
 
       - name: Build and draft release
-        if: github.event_name != 'pull_request'
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
