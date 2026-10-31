@@ -386,8 +386,9 @@ export default function App() {
             </For>
           </div>
           <p class="field-help">
-            A feature switched off is not installed by the plugin at startup; restart the
-            game after saving.
+            Split screen, dialogue and tithe features switched off are not installed at
+            startup; auto hot-join simply stops filling free slots. Restart the game after
+            saving.
           </p>
         </section>
 
