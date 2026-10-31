@@ -1,0 +1,13 @@
+# Build output
+mod/bin/
+mod/obj/
+app/target/
+app/dist/
+node_modules/
+
+# Local tooling
+.vs/
+.vscode/
+*.user
+*.suo
+.DS_Store

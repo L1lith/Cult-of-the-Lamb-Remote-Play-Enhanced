@@ -1,0 +1,38 @@
+name: build-mod
+
+on:
+  push:
+    paths:
+      - "mod/**"
+      - ".github/workflows/mod.yml"
+  pull_request:
+    paths:
+      - "mod/**"
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Restore
+        run: dotnet restore mod/RemotePlayEnhanced.csproj
+
+      - name: Build
+        run: dotnet build mod/RemotePlayEnhanced.csproj -c Release --no-restore
+
+      - name: Verify artifact
+        run: |
+          ls -la mod/bin/Release/
+          test -f mod/bin/Release/RemotePlayEnhanced.dll
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: RemotePlayEnhanced
+          path: mod/bin/Release/RemotePlayEnhanced.dll
+          if-no-files-found: error

@@ -1,7 +1,7 @@
 # Cult of the Lamb — Remote Play Enhanced
 
 Design decisions and technical plan.
-Status: **agreed; game internals verified against the installed build.**
+Status: **agreed; game internals verified against the installed build; milestone 3 implemented.**
 
 ## 1. What this is
 
@@ -58,6 +58,8 @@ Established by inspecting the installed copy, not assumed.
 | Catalog | `StreamingAssets/aa/catalog.json`, 17,025 internal IDs |
 | Executable | Stock Unity player, **no SteamStub** (see `docs/` history) |
 | COTLMP | Present under `BepInEx/plugins/COTLMP/`, compiled only |
+| Player cap | `CoopManager..cctor` allocates `AllPlayerGameObjects = new GameObject[2]`; this is the cap |
+| Hot-join routine | `CoopManager.HandleCoopCreation` exists (private static) but has **no callers** in this build |
 
 Asset locations that matter:
 
@@ -130,6 +132,9 @@ Confirmed in `Assembly-CSharp.dll`.
 | Symbol | Use |
 |---|---|
 | `CoopManager`, `CoopActive`, `CoopPlayerFrozen` | Co-op subsystem; the freeze flag |
+| `AllPlayerGameObjects` | Static `GameObject[]`; length 2 is the real player cap |
+| `HandleCoopCreation`, `SpawnCoopPlayer`, `CreateCoopPlayer` | Complete guest spawn path, driven by slot index |
+| `UICoopAssignController.ConfirmSpawnButtonPress` | Menu path; hardcodes slot 1 and Rewired players 0/1 |
 | `CoopBlockersEnabled`, `CoopBlockerController` | Tether walls — removed |
 | `SetStateForAllPlayers`, `PositionAllPlayers`, `DoAllPlayersHaveJoysticks`, `ApplyAllBindingsAllPlayers`, `HapticAllPlayers` | Engine is already written against a **player list**, not two hardcoded players |
 | `CameraFollowTarget`, `CameraSetZoom`, `CameraSetTargetZoom`, `CameraSetOffset`, `CameraSetConversationMode`, `PanToAll`, `SetTargetCameraRoutine` | Camera is scriptable and multi-target aware |
@@ -206,6 +211,7 @@ so the change is not jarring. HUD stays as a single overlay for v1.
 |---|---|
 | `Camera.main` assumptions elsewhere in the game | clones never use the MainCamera tag |
 | HUD (`Screen Space - Overlay`) spans the whole window when split | accepted for v1; per-viewport HUD is a later option |
+| Vanilla health HUD has two heart groups (`health_firstPlayer`, `health_secondPlayer`) | guests 3–4 reuse the second group; per-player HUD cloning is later work |
 | Two–four full scene renders | stylised 2D; measure, expected fine |
 | Cutscene camera takeover | force merge during conversation mode |
 | Flapping at threshold | hysteresis + interpolation |
@@ -295,6 +301,11 @@ re-derive it.
 | The game executable carries **no SteamStub**; the shipped `steam_api64.dll` is the genuine Valve binary | No unpacking step exists; DRM work is out of scope |
 | COTLMP is compiled-only, with its own TCP/UDP stack and server browser | Confirms "fusion" must be a reimplementation, not a link |
 | `AllPlayers` helpers exist in `Assembly-CSharp` | Player count is not hardcoded to 2 in the core |
+| `CoopManager..cctor` allocates `AllPlayerGameObjects` with length 2 | The 2-player cap is one array allocation; milestone 3 replaces it |
+| `HandleCoopCreation` has no callers in this build | Hot-join is menu-driven for player 2 only; the mod calls the routine itself |
+| `ConfirmSpawnButtonPress` hardcodes slot 1 and Rewired players 0/1 | The vanilla menu cannot add a third or fourth guest |
+| `PlayerFarming.SetSkin` treats every `isLamb == false` player as the Goat | Guests 2–4 share the Goat skin |
+| `Health_Manager.Init` has one single-player and one two-player layout | health HUD for guests 3–4 is degraded until per-player HUD cloning |
 | `CameraFollowTarget` supports multiple targets and zoom/offset setters | Split-screen director can use supported APIs |
 | `CoopPlayerFrozen` / `SetStateForAllPlayers` are the freeze mechanism | Dialogue lock becomes per-player |
 | Lamb and Goat are skins on one Spine skeleton sharing one atlas | Guest avatars are a skin assignment, not new art |
@@ -303,9 +314,9 @@ re-derive it.
 
 ## 14. Milestones
 
-1. Design agreed (this document).
-2. Repo scaffold + mod loads under BepInEx, logs capability report, no patches.
-3. Player expansion 2 → 4 (guests) via skin assignment, input binding, hot-join.
+1. ✅ Design agreed (this document).
+2. ✅ Repo scaffold + mod loads under BepInEx, logs capability report.
+3. ✅ Player expansion 2 → 4: slot array resized, guests 3–4 hot-join via `HandleCoopCreation`.
 4. Camera director: `MERGED` + `SPLIT_2`, hysteresis, interpolation.
 5. `SPLIT_4`, cutscene merge, pausing.
 6. Dialogue no-freeze + auto-exit.

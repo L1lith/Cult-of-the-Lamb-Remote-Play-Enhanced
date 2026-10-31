@@ -4,8 +4,9 @@ A BepInEx mod that turns *Cult of the Lamb*'s local co-op into a **4-player,
 dynamic split-screen** experience for **Steam Remote Play Together**, with a
 Tauri desktop app for installing, configuring and updating it.
 
-> **Status:** design agreed; game internals verified against the installed build.
-> Implementation not started.
+> **Status:** design agreed; game internals verified against the installed build;
+> milestone 3 (4-player expansion) implemented in `mod/`. Split screen, dialogue
+> and tithes are not implemented yet.
 > Read [`docs/DESIGN.md`](docs/DESIGN.md) first — it is the source of truth for
 > architecture, verified findings, the split-screen algorithm, and
 > version-tolerance strategy.
